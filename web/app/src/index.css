@@ -1,0 +1,61 @@
+@import '../../elevionix-design-system/styles.css';
+@import 'tailwindcss';
+
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-brown-deep: #33200d;
+  --color-brown: #4a2e14;
+  --color-brown-mid: #7a5a32;
+  --color-gold: #c9971c;
+  --color-gold-soft: #ebdfc0;
+  --color-yellow: #f2c230;
+  --color-yellow-pale: #fdf6e0;
+  --color-yellow-card: #fffbee;
+  --color-orange: #e57200;
+  --color-orange-deep: #c05e00;
+  --color-hairline: #f3ebd6;
+
+  --font-display: 'Schibsted Grotesk', sans-serif;
+  --font-sans: 'Instrument Sans', sans-serif;
+  --font-mono: 'IBM Plex Mono', monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--color-yellow-pale);
+  color: var(--color-brown);
+  font-family: var(--font-sans);
+}
+
+/* the signature gold seal rule beneath section headings */
+.seal::after {
+  content: '';
+  display: block;
+  width: 44px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--color-gold);
+  margin-top: 8px;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-gold);
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--color-orange);
+  box-shadow: 0 0 0 3px rgba(229, 114, 0, 0.16);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-orange);
+  outline-offset: 2px;
+}

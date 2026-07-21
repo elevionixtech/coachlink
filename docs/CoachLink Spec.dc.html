@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/elevionix-design-system-f5b95d58-387a-4675-b1e7-609498df7923/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/elevionix-design-system-f5b95d58-387a-4675-b1e7-609498df7923/tokens/colors.css">
+  <style>
+    html,body{margin:0;padding:0;}
+    a{color:var(--orange-deep);text-decoration:none;}
+    a:hover{color:var(--orange);}
+  </style>
+</helmet>
+<x-import component-from-global-scope="doc-page" from="./doc-page.js" size="letter" orientation="portrait" margin="0.85in" hint-size="100%,100%">
+  <div slot="footer" style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#B08D45;padding-top:6px;border-top:1px solid #EBDFC0;">
+    <span>CoachLink — Implementation Specification</span><span>v1.1 · 20 Jul 2026</span>
+  </div>
+  <div style="font-family:'Instrument Sans',sans-serif;color:#33200D;font-size:14.5px;line-height:1.62;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#C9971C;margin-bottom:10px;">Implementation Specification · v1.1 · Draft</div>
+    <h1 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:800;font-size:34px;letter-spacing:-.02em;line-height:1.1;margin:0 0 10px;">CoachLink — Class &amp; Client Management Platform</h1>
+    <div style="width:44px;height:4px;background:#C9971C;border-radius:2px;margin:14px 0 18px;"></div>
+    <p style="margin:0 0 6px;"><strong>Purpose.</strong> CoachLink manages services, clients, instructors, billing, and class operations for businesses that run regular enrolled classes. The initial vertical is fitness and yoga studios; the domain model is deliberately generic so art studios, coaching centers, and clinics can adopt it without schema changes.</p>
+    <p style="margin:0;">This spec describes the system behind the approved prototype (<em>CoachLink.dc.html</em>): data model, business rules, API surface, and a phased build plan. UI behavior follows the prototype unless stated otherwise.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">1 · Scope</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <p style="margin:0 0 10px;"><strong>In scope (v1):</strong> service catalogue with deliverables; client CRM with lifecycle, preferences, corporate/family accounts, contact notes; instructor registry; locations, batches, enrollments; subscriptions with percentage discounts; invoice generation from subscriptions; a KPI dashboard.</p>
+    <p style="margin:0;"><strong>Also in scope (v1):</strong> multi-tenancy, following the shared multi-tenancy specification used across our products (ContractHub): organisations as the tenant boundary, org-code login, a superadmin platform-administration surface, and platform subscription plans with expiry enforcement. There is <strong>no self-signup</strong> — organisations and members are created only through the platform/admin flows (§5.7).</p>
+    <p style="margin:0;"><strong>Out of scope (v1):</strong> payments/gateway integration, attendance tracking, fine-grained roles &amp; permissions, client-facing portal, notifications (email/WhatsApp), GST invoice PDFs. These are listed as later phases in §8.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">2 · Architecture overview</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <p style="margin:0 0 10px;">A conventional three-tier web application is sufficient; nothing in the domain requires exotic infrastructure.</p>
+    <ul style="margin:0 0 10px;padding-left:22px;">
+      <li><strong>Frontend:</strong> SPA (React or equivalent) mirroring the prototype's five sections — Dashboard, Clients, Services, Instructors, Operations — plus the global Invoices ledger. Client-side routing per §6.</li>
+      <li><strong>Backend:</strong> REST API (§7) over a relational database. All business rules (§5) live server-side; the UI never computes billing on its own.</li>
+      <li><strong>Database:</strong> PostgreSQL, shared schema. Top-level domain tables (service, client, instructor, location, batch) carry a <strong>NOT NULL org_id</strong> (fk → organisation, ON DELETE RESTRICT, indexed). Child tables (deliverables, contact notes, subscriptions, enrollments, invoices) inherit tenancy through their tenant-scoped parent — org_id is <em>not</em> duplicated onto them.</li>
+      <li><strong>Login &amp; tenant resolution:</strong> single domain. Login takes three fields, in this order: <strong>organisation code · username · password</strong> (code mandatory, case-insensitive; the reserved code <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">PLATFORM</code> routes to org-less platform accounts and can never be claimed by a real org). On failure, always the same generic message — never reveal which part was wrong. The session/JWT carries <strong>only the user id</strong>; the org is resolved server-side from the user row on every request, so nothing tenant-related is ever trusted from the client and org moves/deactivations/lapses take effect immediately.</li>
+      <li><strong>Roles:</strong> <em>superadmin</em> — platform operator, the only role allowed org_id NULL (DB CHECK), blocked from all domain APIs by construction; <em>admin</em> — org-level admin (settings and members); <em>staff</em> — org-level regular user. Usernames are unique per organisation.</li>
+      <li><strong>Enforcement:</strong> app-layer — a <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">require_org_user</code> dependency on every domain endpoint rejects org-less users (403) and yields the caller's org id; the isolation test suite (§5.6) is the guard. Postgres row-level security may be added as a defence-in-depth backstop.</li>
+    </ul>
+    <p style="margin:0 0 10px;"><strong>Per-org configuration</strong> lives on the Organisation record (§3.0): currency &amp; locale, invoice grace days, invoice number prefix, capacity policy, and the lookup sets (units, location types, lead sources) — this is what lets a non-fitness vertical rename its vocabulary without code changes. Uniqueness constraints that were global become per-org composites (org_id, business_key) — SKU, location/batch codes, invoice numbers, usernames — so the same SKU may exist in two organisations; case-insensitive name checks are scoped per org too.</p>
+    <p style="margin:0;"><strong>Extensibility principle.</strong> Nothing fitness-specific is hard-coded: service types, delivery modes, units, location types, and lead sources are lookup enums per organization, so a music school can rename "Studio" to "Practice room" without a migration.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">3 · Data model</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <p style="margin:0 0 14px;">Three tenancy entities (Organisation, AppUser, SubscriptionPlan) plus eight core domain entities. All tables carry <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">id (uuid)</code>, <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">created_at</code>, <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">updated_at</code>; top-level domain tables additionally carry <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">org_id</code> (§2). These are omitted below.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.0 Organisation, AppUser &amp; SubscriptionPlan (tenancy)</h3>
+    <p style="margin:0 0 6px;"><strong>Organisation</strong> (the tenant boundary): <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">name (unique) · code (unique, 2–20 chars [A-Z0-9-], stored uppercase — used at login; "PLATFORM" reserved) · plan_id (fk → subscription_plan, nullable) · subscription_starts_on · subscription_ends_on · currency (default INR) · timezone · invoice_prefix (default "INV") · invoice_grace_days (default 7) · capacity_policy (warn | block) · settings (jsonb: units, location types, lead sources, note channels)</code>. Each org keeps its own invoice sequence.</p>
+    <p style="margin:0 0 6px;"><strong>AppUser</strong>: <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">org_id (nullable fk) · name · username · password_hash · role (superadmin | admin | staff)</code>. DB CHECK: <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">org_id IS NOT NULL OR role = 'superadmin'</code>. Composite unique (org_id, username), plus a partial unique index on username WHERE org_id IS NULL so org-less platform accounts stay unique among themselves. Contact notes record their author. Cross-org access is not supported — a person working at two studios has two accounts.</p>
+    <p style="margin:0;"><strong>SubscriptionPlan</strong> (platform billing — distinct from a client's service subscription, §3.7): <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">name (unique, case-insensitive) · amount (₹) · no_of_days (int &gt; 0) · description</code>. CRUD is superadmin-only; DELETE returns 409 ("In use by N organisations") while any org references the plan, with FK RESTRICT as backstop.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.1 Service</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:26%;">Field</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:26%;">Type</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;">Notes</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">name</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text, required</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">e.g. "Hatha Yoga — Monthly"</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">sku</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text, unique per org</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Stable billing identifier</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">description</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;"></td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">service_type</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Subscription · Usage Based · One Time · Project Based</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">delivery_mode</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Offline · Online · Hybrid · Self Service</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">max_capacity</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">integer ≥ 0</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Per-batch cap for this service</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">billing_interval</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">N/A · Monthly · Weekly · Quarterly · Semi-Annual · Annual</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">rate</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">numeric(12,2), ₹</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Price per interval (or total if one-time)</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">cancellation_policy</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Non-Refundable · Flexible · Moderate · Strict</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">pricing_options</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum[]</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Corporate Plan · Family Plan · Other (multi-select)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 6px;"><strong>ServiceDeliverable</strong> (child table, 1-to-many): <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">service_id · name · quantity (int &gt; 0) · unit (sessions | classes | hours | days)</code>. Example: "12 classes — Hatha yoga classes". Units are an org-level lookup so other verticals can add "projects", "labs", etc.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.2 Client</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:26%;">Field</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:26%;">Type</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;">Notes</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">name</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text, required</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;"></td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">name_hint</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Disambiguator shown beneath the name ("Marathon runner")</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">phone · email</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">At least one recommended; not enforced in v1</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">gender</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum, optional</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Female · Male · Non-binary · Prefer not to say</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">date_of_birth</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">date</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Age is always computed, never stored</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">lead_source</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">lookup</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Walk-in · Referral · Instagram · Website · Corporate tie-up · Event · Other</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">lifecycle_stage</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Lead · Prospect · Customer · Lapsed (rules in §5.1)</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">do_not_contact · do_not_email · do_not_call</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">boolean ×3</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Enforced by any future comms feature (§5.4)</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">address · work · description</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;"></td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">account_type</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">enum</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Individual · Corporate · Family</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">company_name · gstin · company_contact</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">text</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Populated only when account_type = Corporate</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">family_link_id</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">fk → client, nullable</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Must reference an existing client; link shown on both profiles (§5.3)</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 6px;"><strong>ContactNote</strong> (child table): <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">client_id · date · channel (Call | WhatsApp | Email | In person) · text · author_id</code>. Append-only; newest first.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.3 Instructor</h3>
+    <p style="margin:0 0 10px;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">name · date_of_birth · address · phone · skills (text[]) · experience_at_joining_years (numeric) · courses · certifications · joining_date</code></p>
+    <p style="margin:0;">Age and current experience are derived: <em>current experience = experience_at_joining + years since joining_date</em>. Neither is stored.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.4 Location</h3>
+    <p style="margin:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">name · code (unique per org) · type (Studio | Center | Branch | Campus | Clinic | Other) · address · capacity_per_batch (int) · parallel_batches (int)</code> — parallel_batches is the number of batches the location can run simultaneously.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.5 Batch</h3>
+    <p style="margin:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">name · code (unique per org) · status (active | inactive | upcoming | completed) · location_id (fk) · instructor_id (fk) · start_date · end_date · start_time · end_time · description</code>. Constraint: end_date ≥ start_date; end_time &gt; start_time.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.6 Enrollment</h3>
+    <p style="margin:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">batch_id (fk) · client_id (fk) · start_date</code>. Unique on (batch_id, client_id). Creatable from either the batch page or the client page — both paths hit the same endpoint.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.7 Subscription</h3>
+    <p style="margin:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">client_id (fk) · service_id (fk) · start_date · discount_pct (numeric 0–100) · status (active | ended)</code>. Effective rate = service.rate × (1 − discount_pct/100), rounded to the rupee.</p>
+
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:20px 0 8px;">3.8 Invoice</h3>
+    <p style="margin:0;"><code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">number (INV-YYYY-NNNN, org-sequential) · client_id (fk) · subscription_id (fk) · period_label · issue_date · amount · status (due | paid | void)</code>. Unique on (subscription_id, period_label) — this is what makes generation idempotent. "Overdue" is derived, not stored: status = due AND issue_date + grace_days &lt; today (grace_days is an org setting, default 7).</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;break-before:page;">4 · Entity relationships</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <pre style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.7;background:#FDF6E0;border:1px solid #EBDFC0;border-radius:8px;padding:16px 20px;margin:0 0 12px;overflow-x:auto;">Organisation 1─* {AppUser, Service, Client, Instructor,
+                  Location, Batch}          (org_id, top-level tables;
+                                             children inherit via parent)
+SubscriptionPlan 1─* Organisation            (plan_id, nullable)
+AppUser 1─* ContactNote                      (author_id)
+Service 1─* ServiceDeliverable
+Service 1─* Subscription *─1 Client
+Subscription 1─* Invoice
+Client 1─* ContactNote
+Client 1─* Enrollment *─1 Batch
+Client *─1 Client            (family_link_id, self-reference)
+Batch  *─1 Location
+Batch  *─1 Instructor</pre>
+    <p style="margin:0;">Deletes are soft (an <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">archived_at</code> timestamp) for Service, Client, Instructor, Location, and Batch; invoices and notes are never deleted, only voided/retained.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">5 · Business rules</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.1 Lifecycle stage</h3>
+    <p style="margin:0 0 10px;">Stage is staff-editable, with one automatic transition: creating a subscription promotes the client to <strong>Customer</strong> if not already. Suggested (not enforced) semantics: Lead = expressed interest; Prospect = trial taken or in discussion; Customer = has an active subscription or enrollment; Lapsed = previously Customer, nothing active.</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.2 Invoice generation ("generate missing")</h3>
+    <p style="margin:0 0 6px;">For each active subscription, walk billing periods from <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">start_date</code> to today, stepping by the service's billing interval (Weekly +7d; Monthly +1m; Quarterly +3m; Semi-Annual +6m; Annual +12m). For each period without an invoice for (subscription, period_label), create one with status <em>due</em> at the effective (discounted) rate. Interval N/A produces exactly one invoice, dated start_date.</p>
+    <p style="margin:0 0 10px;">The operation is idempotent and runs at three scopes: one client (client → Invoices tab), all clients (global Invoices page), and nightly by a scheduled job. Period labels: "Jul 2026", "Q3 2026", "Wk of 14 Jul 2026", "H2 2026", "2026", "One-time".</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.3 Family &amp; corporate accounts</h3>
+    <p style="margin:0 0 10px;">Family links may only point to an existing client; the reverse link is shown automatically on the linked member's profile ("Linked by"). Corporate clients carry company details (name, GSTIN, contact) used on their invoices. A client is exactly one of Individual / Corporate / Family; switching away from Corporate clears company fields, switching away from Family clears the link.</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.4 Contact preferences</h3>
+    <p style="margin:0 0 10px;">The three do-not flags are hard gates for any outbound automation (Phase 3): do_not_contact suppresses all channels; the other two suppress their channel. The UI surfaces flags on the client list and header so staff see them before manual outreach.</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.5 Capacity</h3>
+    <p style="margin:0 0 10px;">A batch's capacity is its location's <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">capacity_per_batch</code>. Behavior follows the org's <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">capacity_policy</code>: <em>warn</em> (default) allows override; <em>block</em> rejects the enrollment. Rosters display fill as "enrolled/capacity".</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.6 Tenant isolation</h3>
+    <p style="margin:0 0 10px;">Every domain endpoint passes through <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">require_org_user</code>. Every list/aggregate filters by the caller's org id; every fetch-by-id verifies ownership — a foreign tenant's id behaves as a <strong>404, never a 403</strong> (no existence leaking). Any foreign key arriving in a request body (service ids, batch ids, family links, …) is verified to belong to the caller's org before being attached, else 404; mutations reached through a child id (a deliverable, a note) walk up to the tenant-scoped parent and verify org there. Backups, exports, and the nightly invoice job iterate per org. Org deletion is a soft close, never a cascade drop.</p>
+    <p style="margin:0;"><strong>The isolation test suite is the guard</strong> (enforcement is app-layer): tests assert org-scoped lists and stats, foreign-tenant 404s on reads and mutations across every endpoint, rejection of cross-org reference ids, per-org uniqueness (same SKU or username in two orgs is fine; duplicates within one org conflict), the login matrix (wrong code fails, code case-insensitive, reserved code only matches platform accounts), the role matrix (staff can't manage members; org admin can't touch foreign orgs; superadmin manages any org but gets 403 on all domain APIs), and subscription-expiry behavior. Every new endpoint must extend the suite.</p>
+    <h3 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:16px;margin:18px 0 8px;">5.7 Platform subscriptions &amp; expiry</h3>
+    <p style="margin:0;">Assigning a plan (superadmin) stamps starts_on (defaults to today) and ends_on = starts_on + plan.no_of_days. Status is derived on read: <em>none · active · expired</em>. Expiry is enforced by one shared helper at three chokepoints: (1) login — members of an expired org get 403 naming the org and expiry date; (2) require_org_user — checked per request, so tokens issued before the lapse stop working the moment it expires; (3) member management by the org's own admin. The superadmin is never blocked (that is how renewal happens), and renewal restores access instantly with no re-login. Orgs with <em>no</em> plan assigned are not blocked — only a lapsed subscription blocks.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">6 · Application structure</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:24%;">Route</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;">Content</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/dashboard</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">KPIs (active clients, active batches, billed this month, overdue count) · today's batches · recent enrollments</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/clients · /clients/:id</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Searchable list with lifecycle filter; detail with tabs: Details · Corporate &amp; family · Notes · Invoices · Subscriptions · Enrollments</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/services</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Card grid; create/edit modal with inline deliverables editor</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/instructors · /instructors/:id</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">List; detail with computed age/experience and batches taught</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/operations</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Tabs: Locations · Batches · Enrollments; batch detail at /operations/batches/:id with roster + enroll action</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/invoices</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Global ledger, Paid/Due/Overdue filters, outstanding total, generate-missing for all clients</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/login</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Organisation code first (uppercase, required) · username · password; hint that platform admins use the reserved code</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/platform</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Superadmin-only landing (normal nav hidden): org list with code, plan, status, counts · create org + first admin · per-org member management · plan catalogue with "in use" disabled delete</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">/settings/members</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Org admin: member list + add member with admin/staff toggle; the org name is shown in the app chrome</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:12px 0 0;">Visual style follows the Elevionix design system: cream surfaces, gold hairlines, brown ink, orange reserved for the single committing action per screen; IBM Plex Mono for IDs, dates, and amounts with ₹ Indian digit grouping.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;break-before:page;">7 · API surface (v1)</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <p style="margin:0 0 10px;">REST, JSON, cursor pagination on lists. All domain routes below pass require_org_user — the org comes from the caller's user row on every request, never from a URL or request body; foreign-tenant ids answer 404. Standard CRUD for services, clients, instructors, locations, batches:</p>
+    <pre style="font-family:'IBM Plex Mono',monospace;font-size:12px;line-height:1.7;background:#FDF6E0;border:1px solid #EBDFC0;border-radius:8px;padding:16px 20px;margin:0 0 12px;overflow-x:auto;">GET/POST        /api/{services|clients|instructors|locations|batches}
+GET/PATCH/DELETE /api/…/:id
+
+POST   /api/clients/:id/notes            append contact note
+GET    /api/clients/:id/invoices
+POST   /api/clients/:id/subscriptions    { service_id, start_date, discount_pct }
+POST   /api/enrollments                  { client_id, batch_id, start_date } → 409 on duplicate
+GET    /api/invoices?status=&amp;client_id=
+POST   /api/invoices/generate-missing    { client_id? }  → { created: n }   (idempotent)
+PATCH  /api/invoices/:id                 { status: "paid" | "void" }
+GET    /api/dashboard                    KPI aggregates
+
+POST   /api/login                        { org_code, username, password } → session (user id only)
+GET/PATCH /api/org                       current org settings (org admin)
+GET/POST  /api/organisations/:id/members own admin or superadmin; staff → 403, foreign org → 404;
+                                         created members: admin | staff, never superadmin
+POST   /api/admin/organisations          superadmin: org (name + code) + first user, role forced admin
+GET    /api/admin/organisations          superadmin: list with member counts + subscription status
+CRUD   /api/admin/plans                  superadmin; DELETE → 409 while any org references the plan
+POST   /api/admin/organisations/:id/plan assign plan → stamps starts_on / ends_on</pre>
+    <p style="margin:0;">Validation errors return 422 with per-field messages mirroring the modal's "Required: …" pattern. All list endpoints accept <code style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;background:#FDF6E0;padding:1px 5px;border-radius:3px;">q</code> (search) where the UI offers it.</p>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">8 · Build plan</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;width:16%;">Phase</th>
+        <th style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#C9971C;text-align:left;padding:7px 10px;border-bottom:1px solid #EBDFC0;font-weight:500;">Deliverable</th>
+      </tr></thead>
+      <tbody>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">Phase 1</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Multi-tenant foundation per the shared tenancy spec: org-code login, superadmin/admin/staff roles, require_org_user scoping, platform admin screen, subscription plans + expiry enforcement, isolation test suite; schema + CRUD for all entities; Clients, Services, Instructors, Operations screens per prototype</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">Phase 2</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Subscriptions, invoice generation (all three scopes) + nightly job, mark-paid, global Invoices ledger, dashboard KPIs</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">Phase 3</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Attendance tracking against batch sessions and deliverable consumption; GST invoice PDFs; email/WhatsApp reminders honoring do-not flags</td></tr>
+        <tr><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;font-family:'IBM Plex Mono',monospace;font-size:12px;">Phase 4</td><td style="padding:6px 10px;border-bottom:1px solid #F3EBD6;">Fine-grained permissions, cross-org accounts, org settings UI for the configurable lookups (units, location types, lead sources), online payment collection for platform subscriptions</td></tr>
+      </tbody>
+    </table>
+
+    <h2 style="font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:21px;letter-spacing:-.015em;margin:34px 0 4px;">9 · Open questions</h2>
+    <div style="width:32px;height:3px;background:#C9971C;border-radius:2px;margin:6px 0 14px;"></div>
+    <ul style="margin:0;padding-left:22px;">
+      <li>Should family-linked clients share a single invoice (one payer per family) or remain individually billed with the Family Plan discount?</li>
+      <li>Proration: when a subscription starts mid-period, is the first invoice full-rate or prorated?</li>
+      <li>Does a Usage Based service (class pack) need per-visit deduction in v1, or is that part of Phase 3 attendance?</li>
+      <li>Is capacity a hard cap (block enrollment) or soft warning by default?</li>
+      <li>GST treatment: are services taxed uniformly, and does the org need invoice-level GSTIN capture beyond corporate clients?</li>
+
+    </ul>
+  </div>
+</x-import>
+</x-dc>
+</body>
+</html>

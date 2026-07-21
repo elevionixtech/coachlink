@@ -1,0 +1,22 @@
+/* Elevionix space, radius, shadow — 8px base grid. */
+:root{
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:20px;
+  --space-6:24px;
+  --space-8:32px;
+  --space-10:40px;
+  --space-14:56px;
+  --space-16:64px;
+
+  /* corner radii */
+  --r-sm:4px;   /* buttons, inputs */
+  --r-md:8px;   /* stat cards, chips */
+  --r-lg:12px;  /* panels, app frame, code blocks */
+  --r-pill:999px; /* badges */
+
+  /* elevation — low, warm-brown tinted */
+  --shadow:0 1px 2px rgba(51,32,13,.06), 0 10px 28px -14px rgba(51,32,13,.24);
+}

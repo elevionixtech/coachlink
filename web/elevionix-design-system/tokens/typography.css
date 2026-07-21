@@ -1,0 +1,37 @@
+/* Elevionix type — brown ink, weight does the talking.
+   Display: Schibsted Grotesk 700-800 (headings, stat values, wordmark — italic 800 wordmark).
+   Text: Instrument Sans 400-600 (body, buttons, inputs).
+   Data: IBM Plex Mono 400-500 (uppercase labels, IDs, dates, amounts). */
+:root{
+  --font-display:'Schibsted Grotesk',system-ui,sans-serif;
+  --font-text:'Instrument Sans',system-ui,sans-serif;
+  --font-data:'IBM Plex Mono',ui-monospace,monospace;
+
+  /* weights */
+  --fw-regular:400; /* @kind font */
+  --fw-medium:500; /* @kind font */
+  --fw-semibold:600; /* @kind font */
+  --fw-bold:700; /* @kind font */
+  --fw-heavy:800; /* @kind font */
+
+  /* display / heading sizes */
+  --fs-display:60px;   --lh-display:1.04; /* @kind font */
+  --fs-h2:31px;        --lh-h2:1.12; /* @kind font */
+  --fs-h3:17px;        --lh-h3:1.3; /* @kind font */
+  --fs-stat:28px;      --lh-stat:1.1; /* @kind font */
+
+  /* body */
+  --fs-lede:18px;      --lh-lede:1.6; /* @kind font */
+  --fs-body:16px;      --lh-body:1.6; /* @kind font */
+  --fs-small:13px;     --lh-small:1.45; /* @kind font */
+
+  /* data / labels */
+  --fs-eyebrow:11px;   --ls-eyebrow:.16em;
+  --fs-label:11px;     --ls-label:.1em;
+  --fs-data:12px;
+
+  /* tracking */
+  --ls-display:-.02em;
+  --ls-heading:-.015em;
+  --ls-wordmark:.06em;
+}

@@ -1,0 +1,50 @@
+/* Elevionix colour — yellow · orange · gold · brown only.
+   Four families, each with a fixed job:
+   Brown = structure & text · Gold = detail · Yellow = highlight/warmth · Orange = action. */
+:root{
+  /* base palette */
+  --brown-deep:#33200D;   /* anchor surfaces: header, nav, footer */
+  --brown:#4A2E14;        /* headings & primary text */
+  --brown-mid:#7A5A32;    /* secondary text, labels */
+  --gold:#C9971C;         /* labels, seals, dividers, table headers */
+  --gold-soft:#EBDFC0;    /* borders, hairline rules */
+  --yellow:#F2C230;       /* highlight fills, active markers, badge fills */
+  --yellow-pale:#FDF6E0;  /* page background */
+  --yellow-card:#FFFBEE;  /* raised cards */
+  --orange:#E57200;       /* logo saffron — primary/committing action */
+  --orange-deep:#C05E00;  /* hover / pressed */
+  --white:#FFFFFF;        /* input surfaces, table body */
+  --hairline:#F3EBD6;     /* faint interior table rules */
+
+  /* semantic aliases */
+  --surface-page:var(--yellow-pale);
+  --surface-card:var(--yellow-card);
+  --surface-input:var(--white);
+  --surface-anchor:var(--brown-deep);
+
+  --text-heading:var(--brown);
+  --text-body:var(--brown);
+  --text-secondary:var(--brown-mid);
+  --text-label:var(--gold);
+  --text-on-anchor:var(--yellow-pale);
+
+  --border-default:var(--gold-soft);
+  --border-focus:var(--orange);
+
+  --accent:var(--orange);
+  --accent-hover:var(--orange-deep);
+  --highlight:var(--yellow);
+
+  /* status */
+  --status-active-fg:#7A5E10;
+  --status-active-bg:rgba(242,194,48,.18);
+  --status-active-border:rgba(201,151,28,.55);
+  --status-pending-fg:var(--orange-deep);
+  --status-pending-bg:rgba(229,114,0,.08);
+  --status-pending-border:rgba(229,114,0,.4);
+  --status-draft-fg:var(--brown-mid);
+  --status-draft-bg:var(--white);
+  --status-draft-border:var(--gold-soft);
+
+  --focus-ring:0 0 0 3px rgba(229,114,0,.16);
+}

@@ -1,0 +1,316 @@
+{
+  "plugins": [
+    "react",
+    "import"
+  ],
+  "rules": {
+    "react/forbid-elements": [
+      "warn",
+      {
+        "forbid": []
+      }
+    ],
+    "no-restricted-imports": [
+      "warn",
+      {
+        "patterns": [
+          {
+            "group": [
+              "components/brand/**",
+              "components/buttons/**",
+              "components/feedback/**",
+              "components/forms/**",
+              "components/surfaces/**",
+              "components/typography/**",
+              "ui_kits/elevionix-app/**"
+            ],
+            "message": "Import design-system components from 'index.js', not component internals."
+          }
+        ]
+      }
+    ],
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/#[0-9a-fA-F]{3,8}\\b/]",
+        "message": "Raw hex color — use a design-system color token via var()."
+      },
+      {
+        "selector": "Literal[value=/\\b\\d+px\\b/]",
+        "message": "Raw px value — use a design-system spacing token via var()."
+      },
+      {
+        "selector": "Literal[value=/font-family\\s*:\\s*(?!['\\\"]?(?:Schibsted Grotesk|Instrument Sans|IBM Plex Mono))/i]",
+        "message": "Font not provided by the design system. Available: Schibsted Grotesk, Instrument Sans, IBM Plex Mono."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|children|key|ref|className|style|children)$/]",
+        "message": "<Badge> doesn't accept that prop. Declared props: variant, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Badge'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:active|pending|draft)$/]",
+        "message": "<Badge> variant must be one of 'active' | 'pending' | 'draft'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute > JSXIdentifier[name!=/^(?:variant|size|disabled|children|key|ref|className|style|children)$/]",
+        "message": "<Button> doesn't accept that prop. Declared props: variant, size, disabled, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='variant'] > Literal[value!=/^(?:accent|primary|quiet)$/]",
+        "message": "<Button> variant must be one of 'accent' | 'primary' | 'quiet'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Button'] > JSXAttribute[name.name='size'] > Literal[value!=/^(?:sm|md|lg)$/]",
+        "message": "<Button> size must be one of 'sm' | 'md' | 'lg'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='EmptyState'] > JSXAttribute > JSXIdentifier[name!=/^(?:title|description|actionLabel|onAction|key|ref|className|style|children)$/]",
+        "message": "<EmptyState> doesn't accept that prop. Declared props: title, description, actionLabel, onAction."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Eyebrow'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|key|ref|className|style|children)$/]",
+        "message": "<Eyebrow> doesn't accept that prop. Declared props: children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Field'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|hint|id|type|value|defaultValue|placeholder|onChange|style|key|ref|className|style|children)$/]",
+        "message": "<Field> doesn't accept that prop. Declared props: label, hint, id, type, value, defaultValue, placeholder, onChange, style."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Panel'] > JSXAttribute > JSXIdentifier[name!=/^(?:children|key|ref|className|style|children)$/]",
+        "message": "<Panel> doesn't accept that prop. Declared props: children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SealHeading'] > JSXAttribute > JSXIdentifier[name!=/^(?:as|children|key|ref|className|style|children)$/]",
+        "message": "<SealHeading> doesn't accept that prop. Declared props: as, children."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='SealHeading'] > JSXAttribute[name.name='as'] > Literal[value!=/^(?:h1|h2|h3)$/]",
+        "message": "<SealHeading> as must be one of 'h1' | 'h2' | 'h3'."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='StatCard'] > JSXAttribute > JSXIdentifier[name!=/^(?:label|value|delta|warn|key|ref|className|style|children)$/]",
+        "message": "<StatCard> doesn't accept that prop. Declared props: label, value, delta, warn."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute > JSXIdentifier[name!=/^(?:on|compact|tagline|key|ref|className|style|children)$/]",
+        "message": "<Wordmark> doesn't accept that prop. Declared props: on, compact, tagline."
+      },
+      {
+        "selector": "JSXOpeningElement[name.name='Wordmark'] > JSXAttribute[name.name='on'] > Literal[value!=/^(?:light|dark)$/]",
+        "message": "<Wordmark> on must be one of 'light' | 'dark'."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/index.js"
+      ],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    }
+  ],
+  "x-omelette": {
+    "components": {
+      "Badge": {
+        "replaces": []
+      },
+      "Button": {
+        "replaces": []
+      },
+      "EmptyState": {
+        "replaces": []
+      },
+      "Eyebrow": {
+        "replaces": []
+      },
+      "Field": {
+        "replaces": []
+      },
+      "Panel": {
+        "replaces": []
+      },
+      "SealHeading": {
+        "replaces": []
+      },
+      "StatCard": {
+        "replaces": []
+      },
+      "Wordmark": {
+        "replaces": []
+      }
+    },
+    "tokens": [
+      "--accent",
+      "--accent-hover",
+      "--border-default",
+      "--border-focus",
+      "--brown",
+      "--brown-deep",
+      "--brown-mid",
+      "--focus-ring",
+      "--font-data",
+      "--font-display",
+      "--font-text",
+      "--fs-body",
+      "--fs-data",
+      "--fs-display",
+      "--fs-eyebrow",
+      "--fs-h2",
+      "--fs-h3",
+      "--fs-label",
+      "--fs-lede",
+      "--fs-small",
+      "--fs-stat",
+      "--fw-bold",
+      "--fw-heavy",
+      "--fw-medium",
+      "--fw-regular",
+      "--fw-semibold",
+      "--gold",
+      "--gold-soft",
+      "--hairline",
+      "--highlight",
+      "--lh-body",
+      "--lh-display",
+      "--lh-h2",
+      "--lh-h3",
+      "--lh-lede",
+      "--lh-small",
+      "--lh-stat",
+      "--ls-display",
+      "--ls-eyebrow",
+      "--ls-heading",
+      "--ls-label",
+      "--ls-wordmark",
+      "--orange",
+      "--orange-deep",
+      "--r-lg",
+      "--r-md",
+      "--r-pill",
+      "--r-sm",
+      "--shadow",
+      "--space-1",
+      "--space-10",
+      "--space-14",
+      "--space-16",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-8",
+      "--status-active-bg",
+      "--status-active-border",
+      "--status-active-fg",
+      "--status-draft-bg",
+      "--status-draft-border",
+      "--status-draft-fg",
+      "--status-pending-bg",
+      "--status-pending-border",
+      "--status-pending-fg",
+      "--surface-anchor",
+      "--surface-card",
+      "--surface-input",
+      "--surface-page",
+      "--text-body",
+      "--text-heading",
+      "--text-label",
+      "--text-on-anchor",
+      "--text-secondary",
+      "--white",
+      "--yellow",
+      "--yellow-card",
+      "--yellow-pale"
+    ],
+    "tokenKinds": {
+      "--brown-deep": "color",
+      "--brown": "color",
+      "--brown-mid": "color",
+      "--gold": "color",
+      "--gold-soft": "color",
+      "--yellow": "color",
+      "--yellow-pale": "color",
+      "--yellow-card": "color",
+      "--orange": "color",
+      "--orange-deep": "color",
+      "--white": "color",
+      "--hairline": "color",
+      "--surface-page": "color",
+      "--surface-card": "color",
+      "--surface-input": "color",
+      "--surface-anchor": "color",
+      "--text-heading": "font",
+      "--text-body": "font",
+      "--text-secondary": "font",
+      "--text-label": "font",
+      "--text-on-anchor": "font",
+      "--border-default": "color",
+      "--border-focus": "color",
+      "--accent": "color",
+      "--accent-hover": "color",
+      "--highlight": "color",
+      "--status-active-fg": "color",
+      "--status-active-bg": "color",
+      "--status-active-border": "color",
+      "--status-pending-fg": "color",
+      "--status-pending-bg": "color",
+      "--status-pending-border": "color",
+      "--status-draft-fg": "color",
+      "--status-draft-bg": "color",
+      "--status-draft-border": "color",
+      "--focus-ring": "shadow",
+      "--font-display": "font",
+      "--font-text": "font",
+      "--font-data": "font",
+      "--fw-regular": "font",
+      "--fw-medium": "font",
+      "--fw-semibold": "font",
+      "--fw-bold": "font",
+      "--fw-heavy": "font",
+      "--fs-display": "spacing",
+      "--lh-display": "font",
+      "--fs-h2": "spacing",
+      "--lh-h2": "font",
+      "--fs-h3": "spacing",
+      "--lh-h3": "font",
+      "--fs-stat": "spacing",
+      "--lh-stat": "font",
+      "--fs-lede": "spacing",
+      "--lh-lede": "font",
+      "--fs-body": "spacing",
+      "--lh-body": "font",
+      "--fs-small": "spacing",
+      "--lh-small": "font",
+      "--fs-eyebrow": "spacing",
+      "--ls-eyebrow": "spacing",
+      "--fs-label": "spacing",
+      "--ls-label": "spacing",
+      "--fs-data": "spacing",
+      "--ls-display": "spacing",
+      "--ls-heading": "spacing",
+      "--ls-wordmark": "spacing",
+      "--space-1": "spacing",
+      "--space-2": "spacing",
+      "--space-3": "spacing",
+      "--space-4": "spacing",
+      "--space-5": "spacing",
+      "--space-6": "spacing",
+      "--space-8": "spacing",
+      "--space-10": "spacing",
+      "--space-14": "spacing",
+      "--space-16": "spacing",
+      "--r-sm": "spacing",
+      "--r-md": "spacing",
+      "--r-lg": "spacing",
+      "--r-pill": "spacing",
+      "--shadow": "shadow"
+    },
+    "fontFamilies": [
+      "IBM Plex Mono",
+      "Instrument Sans",
+      "Schibsted Grotesk"
+    ]
+  }
+}

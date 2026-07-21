@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="_ds/elevionix-design-system-f5b95d58-387a-4675-b1e7-609498df7923/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/elevionix-design-system-f5b95d58-387a-4675-b1e7-609498df7923/tokens/colors.css">
+  <style>
+    html,body{margin:0;padding:0;background:var(--yellow-pale);}
+    a{color:var(--orange-deep);text-decoration:none;}
+    a:hover{color:var(--orange);}
+  </style>
+</helmet>
+<div style="position:relative;width:1580px;height:1040px;background:var(--yellow-pale);font-family:'Instrument Sans',sans-serif;color:var(--brown);">
+  <svg width="1580" height="1040" viewBox="0 0 1580 1040" style="position:absolute;left:0;top:0;pointer-events:none;" fill="none">
+    <path d="M185 426 V510" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M330 200 H380 V345 H430" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M820 255 H750 V345 H720" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M575 462 V560" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M820 300 H790 V640 H720" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M835 506 V800" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M975 506 V650" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M1240 545 H1185 V720 H1130" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M1390 342 V425" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M1390 785 V707" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M1130 130 H1180 V200 H1130" stroke="#CBA75E" stroke-width="1.5" stroke-dasharray="4 3"></path>
+    <path d="M330 810 H770 V880 H820" stroke="#CBA75E" stroke-width="1.5"></path>
+    <path d="M330 940 H370 V180 H430" stroke="#CBA75E" stroke-width="1.5" stroke-dasharray="4 3"></path>
+    <g font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#8A6B3F">
+      <text x="193" y="442">1</text><text x="193" y="504">N</text>
+      <text x="338" y="196">1</text><text x="406" y="339">N</text>
+      <text x="800" y="251">1</text><text x="728" y="339">N</text>
+      <text x="583" y="478">1</text><text x="583" y="554">N</text>
+      <text x="798" y="296">1</text><text x="728" y="634">N</text>
+      <text x="843" y="522">1</text><text x="843" y="794">N</text>
+      <text x="983" y="522">1</text><text x="983" y="644">N</text>
+      <text x="1218" y="541">1</text><text x="1138" y="714">N</text>
+      <text x="1398" y="356">1</text><text x="1398" y="419">N</text>
+      <text x="1398" y="779">1</text><text x="1398" y="721">N</text>
+      <text x="1140" y="122">0..1 family link</text>
+      <text x="338" y="804">1</text><text x="798" y="872">N</text>
+      <text x="380" y="828">author_id</text>
+      <text x="338" y="934">1</text><text x="404" y="176">N</text>
+      <text x="378" y="600">plan_id</text>
+    </g>
+  </svg>
+
+  <div style="position:absolute;left:40px;top:18px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold);">CoachLink · Data model · v1.0</div>
+    <div style="font-family:'Schibsted Grotesk',sans-serif;font-weight:800;font-size:26px;letter-spacing:-.02em;margin-top:4px;">Entity–relationship diagram</div>
+    <div style="width:44px;height:4px;background:var(--gold);border-radius:2px;margin-top:8px;"></div>
+  </div>
+  <div style="position:absolute;left:480px;top:28px;width:340px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;line-height:1.75;color:var(--brown-mid);white-space:nowrap;">1 ─ N one-to-many · dashed = optional link<br><span style="color:var(--orange-deep);">FK</span> foreign key · id + timestamps on all tables<br><span style="color:var(--orange-deep);">org_id → Organisation</span> on top-level tables only</div>
+
+  <div style="position:absolute;left:430px;top:100px;width:290px;height:162px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Organisation <span style="font-weight:400;font-size:10px;opacity:.7;">tenant boundary</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text · unique</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>code</span><span style="color:#B08D45;font-size:10px;">[A-Z0-9-] · unique · used at login</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">plan_id</span><span style="color:#B08D45;font-size:10px;">FK → SubscriptionPlan · 0..1</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>subscription_starts_on · ends_on</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>settings</span><span style="color:#B08D45;font-size:10px;">jsonb · currency · lookups</span></div>
+  </div>
+
+  <div style="position:absolute;left:40px;top:700px;width:290px;height:162px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">AppUser</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · nullable</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>username</span><span style="color:#B08D45;font-size:10px;">unique per org</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>password_hash</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>role</span><span style="color:#B08D45;font-size:10px;">superadmin · admin · staff</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>check</span><span style="color:#B08D45;font-size:10px;">org_id NULL ⇒ superadmin</span></div>
+  </div>
+
+  <div style="position:absolute;left:40px;top:880px;width:290px;height:138px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">SubscriptionPlan <span style="font-weight:400;font-size:10px;opacity:.7;">platform billing</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text · unique (ci)</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>amount</span><span style="color:#B08D45;font-size:10px;">₹ numeric</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>no_of_days</span><span style="color:#B08D45;font-size:10px;">int &gt; 0</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>description</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+  </div>
+
+  <div style="position:absolute;left:40px;top:120px;width:290px;height:306px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Service</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · NOT NULL</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>sku</span><span style="color:#B08D45;font-size:10px;">text · unique per org</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>description</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>service_type</span><span style="color:#B08D45;font-size:10px;">enum</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>delivery_mode</span><span style="color:#B08D45;font-size:10px;">enum</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>max_capacity</span><span style="color:#B08D45;font-size:10px;">int</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>billing_interval</span><span style="color:#B08D45;font-size:10px;">enum</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>rate</span><span style="color:#B08D45;font-size:10px;">₹ numeric</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>cancellation_policy</span><span style="color:#B08D45;font-size:10px;">enum</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>pricing_options</span><span style="color:#B08D45;font-size:10px;">enum[]</span></div>
+  </div>
+
+  <div style="position:absolute;left:40px;top:510px;width:290px;height:138px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">ServiceDeliverable</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">service_id</span><span style="color:#B08D45;font-size:10px;">FK → Service</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>quantity</span><span style="color:#B08D45;font-size:10px;">int &gt; 0</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>unit</span><span style="color:#B08D45;font-size:10px;">sessions·classes·hours·days</span></div>
+  </div>
+
+  <div style="position:absolute;left:430px;top:300px;width:290px;height:162px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Subscription</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">client_id</span><span style="color:#B08D45;font-size:10px;">FK → Client</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">service_id</span><span style="color:#B08D45;font-size:10px;">FK → Service</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>start_date</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>discount_pct</span><span style="color:#B08D45;font-size:10px;">numeric 0–100</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>status</span><span style="color:#B08D45;font-size:10px;">active · ended</span></div>
+  </div>
+
+  <div style="position:absolute;left:430px;top:560px;width:290px;height:234px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Invoice</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>number</span><span style="color:#B08D45;font-size:10px;">INV-YYYY-NNNN · per-org seq</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">client_id</span><span style="color:#B08D45;font-size:10px;">FK → Client</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">subscription_id</span><span style="color:#B08D45;font-size:10px;">FK → Subscription</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>period_label</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>issue_date</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>amount</span><span style="color:#B08D45;font-size:10px;">₹ numeric</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>status</span><span style="color:#B08D45;font-size:10px;">due · paid · void</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>unique</span><span style="color:#B08D45;font-size:10px;">(subscription_id, period_label)</span></div>
+  </div>
+
+  <div style="position:absolute;left:820px;top:80px;width:310px;height:426px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Client</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · NOT NULL</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name_hint</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>phone</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>email</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>gender</span><span style="color:#B08D45;font-size:10px;">enum · optional</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>date_of_birth</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>lead_source</span><span style="color:#B08D45;font-size:10px;">lookup</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>lifecycle_stage</span><span style="color:#B08D45;font-size:10px;">Lead·Prospect·Customer·Lapsed</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>do_not_contact/email/call</span><span style="color:#B08D45;font-size:10px;">bool ×3</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>address</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>work</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>description</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>account_type</span><span style="color:#B08D45;font-size:10px;">Individual·Corporate·Family</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>company_name · gstin</span><span style="color:#B08D45;font-size:10px;">corporate only</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">family_link_id</span><span style="color:#B08D45;font-size:10px;">FK → Client · nullable</span></div>
+  </div>
+
+  <div style="position:absolute;left:870px;top:650px;width:260px;height:138px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Enrollment</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">client_id</span><span style="color:#B08D45;font-size:10px;">FK → Client</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">batch_id</span><span style="color:#B08D45;font-size:10px;">FK → Batch</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>start_date</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>unique</span><span style="color:#B08D45;font-size:10px;">(batch_id, client_id)</span></div>
+  </div>
+
+  <div style="position:absolute;left:820px;top:800px;width:310px;height:162px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">ContactNote</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">client_id</span><span style="color:#B08D45;font-size:10px;">FK → Client</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>date</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>channel</span><span style="color:#B08D45;font-size:10px;">Call·WhatsApp·Email·In person</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>text</span><span style="color:#B08D45;font-size:10px;">text · append-only</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">author_id</span><span style="color:#B08D45;font-size:10px;">FK → AppUser</span></div>
+  </div>
+
+  <div style="position:absolute;left:1240px;top:60px;width:300px;height:282px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Instructor</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · NOT NULL</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>date_of_birth</span><span style="color:#B08D45;font-size:10px;">date · age derived</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>address</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>phone</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>skills</span><span style="color:#B08D45;font-size:10px;">text[]</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>experience_at_joining</span><span style="color:#B08D45;font-size:10px;">numeric yrs</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>courses</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>certifications</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>joining_date</span><span style="color:#B08D45;font-size:10px;">date</span></div>
+  </div>
+
+  <div style="position:absolute;left:1240px;top:425px;width:300px;height:282px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Batch</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · NOT NULL</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>code</span><span style="color:#B08D45;font-size:10px;">text · unique per org</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>status</span><span style="color:#B08D45;font-size:10px;">active·inactive·upcoming·completed</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">location_id</span><span style="color:#B08D45;font-size:10px;">FK → Location</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">instructor_id</span><span style="color:#B08D45;font-size:10px;">FK → Instructor</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>start_date · end_date</span><span style="color:#B08D45;font-size:10px;">date · end ≥ start</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>start_time · end_time</span><span style="color:#B08D45;font-size:10px;">time</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>description</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>capacity</span><span style="color:#B08D45;font-size:10px;">derived from Location</span></div>
+  </div>
+
+  <div style="position:absolute;left:1240px;top:785px;width:300px;height:210px;background:var(--yellow-card);border:1px solid var(--gold-soft);border-radius:8px;overflow:hidden;">
+    <div style="box-sizing:border-box;height:34px;padding:8px 12px;background:var(--brown-deep);color:var(--yellow-pale);font-family:'Schibsted Grotesk',sans-serif;font-weight:700;font-size:13px;line-height:18px;">Location</div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span style="color:var(--orange-deep);">org_id</span><span style="color:#B08D45;font-size:10px;">FK → Organisation · NOT NULL</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>name</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>code</span><span style="color:#B08D45;font-size:10px;">text · unique per org</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>type</span><span style="color:#B08D45;font-size:10px;">Studio·Center·Branch·Campus·Clinic·Other</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>address</span><span style="color:#B08D45;font-size:10px;">text</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>capacity_per_batch</span><span style="color:#B08D45;font-size:10px;">int</span></div>
+    <div style="display:flex;justify-content:space-between;gap:8px;box-sizing:border-box;height:24px;padding:4px 10px;border-top:1px solid #F8F2DF;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:15px;"><span>parallel_batches</span><span style="color:#B08D45;font-size:10px;">int</span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1620,&quot;height&quot;:1060}}"></script>
+</body>
+</html>
