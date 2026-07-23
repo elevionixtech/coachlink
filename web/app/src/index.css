@@ -59,3 +59,44 @@ button:focus-visible {
   outline: 2px solid var(--color-orange);
   outline-offset: 2px;
 }
+
+/* ---------------------------------------------------------------- printing
+   The invoice viewer doubles as the PDF: the browser's print dialog saves it.
+   Everything chrome-like is dropped so the sheet is just the document. */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  /* Nav, buttons and anything else marked as screen-only disappear. */
+  .print-hide {
+    display: none !important;
+  }
+
+  /* The document fills the sheet rather than sitting in the app's layout. */
+  .print-sheet {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+  }
+
+  /* Keep colour: browsers strip backgrounds by default and the rules vanish. */
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Never split a row or the totals block across pages. */
+  tr,
+  .print-keep {
+    break-inside: avoid;
+  }
+}

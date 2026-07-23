@@ -14,6 +14,7 @@ from app.routers import (
     locations,
     members,
     org,
+    pricing_options,
     services,
     subscriptions,
 )
@@ -34,6 +35,7 @@ for router in (
     members.router,
     admin.router,
     services.router,
+    pricing_options.router,
     clients.router,
     instructors.router,
     locations.router,

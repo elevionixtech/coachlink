@@ -14,7 +14,9 @@ from app.models import (
     BillingInterval,
     Client,
     Invoice,
+    InvoiceStatus,
     Organisation,
+    PricingMode,
     Subscription,
     SubscriptionStatus,
 )
@@ -68,23 +70,88 @@ def effective_rate(rate: Decimal, discount_pct: Decimal) -> Decimal:
     )
 
 
+def subscription_amount(sub: Subscription) -> Decimal:
+    """What one period of this subscription costs (§3.7).
+
+    A pricing option wins outright — discount_pct applies only in its absence, so the
+    two never compound. Routers force discount_pct to 0 whenever an option is set, so
+    that is belt-and-braces rather than the only guard.
+
+    A subscription pointing at an option the service no longer offers falls back to the
+    base rate: pricing that silently disappears is better than an invoice that crashes
+    the nightly run for every other client.
+    """
+    if sub.pricing_option_id is None:
+        return effective_rate(sub.service.rate, sub.discount_pct)
+
+    wanted = sub.pricing_option_id
+    spo = next((p for p in sub.service.pricing_options if p.pricing_option_id == wanted), None)
+    if spo is None:
+        return effective_rate(sub.service.rate, sub.discount_pct)
+    if spo.pricing_mode is PricingMode.fixed_rate:
+        return spo.value.quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return effective_rate(sub.service.rate, spo.value)
+
+
 def missing_periods(
-    start_date: date, interval: BillingInterval, existing_labels: set[str], today: date
-) -> list[tuple[str, date]]:
-    """(label, issue_date) for every period from start_date to today without an invoice."""
-    if start_date > today:
+    anchor: date,
+    interval: BillingInterval,
+    existing_starts: set[date],
+    today: date,
+    covered: list[tuple[date, date]] | None = None,
+) -> list[tuple[str, date, date]]:
+    """(label, period_start, period_end) for every period from the anchor to today
+    that has no invoice yet.
+
+    `anchor` is normally subscription.start_date, so periods stay anchored and a
+    month-end start never drifts. When an invoice's end date has been extended by hand
+    the caller passes the day after it instead, which shifts every later period by the
+    same amount — that is the point of the extension.
+
+    `covered` is every (start, end) range a live invoice already bills. It has to be the
+    actual ranges rather than one high-water mark: a voided period leaves a hole that
+    later invoices must not paper over, and only a real range test can tell a hole from
+    a period genuinely swallowed by an extension.
+    """
+    if anchor > today:
         return []
+    ranges = covered or []
+
+    def unbilled(start: date) -> bool:
+        if start in existing_starts:
+            return False
+        return not any(lo <= start <= hi for lo, hi in ranges)
+
     if interval == BillingInterval.na:
-        label = period_label(start_date, interval)
-        return [] if label in existing_labels else [(label, start_date)]
-    out: list[tuple[str, date]] = []
+        if not unbilled(anchor):
+            return []
+        return [(period_label(anchor, interval), anchor, anchor)]
+
+    out: list[tuple[str, date, date]] = []
     n = 0
-    while (cursor := nth_period_start(start_date, interval, n)) <= today:
-        label = period_label(cursor, interval)
-        if label not in existing_labels:
-            out.append((label, cursor))
+    while (cursor := nth_period_start(anchor, interval, n)) <= today:
+        end = nth_period_start(anchor, interval, n + 1) - timedelta(days=1)
+        if unbilled(cursor):
+            out.append((period_label(cursor, interval), cursor, end))
         n += 1
     return out
+
+
+def live_invoices(invoices: list[Invoice]) -> list[Invoice]:
+    """Voided invoices bill nothing, so generation ignores them entirely (§3.8) — their
+    period counts as unbilled and gets re-issued."""
+    return [i for i in invoices if i.status is not InvoiceStatus.void]
+
+
+def billing_anchor(sub: Subscription, invoices: list[Invoice]) -> date:
+    """Where the next period starts counting from.
+
+    The subscription start, unless someone has extended an invoice — then the day after
+    the latest such end date, so the shift carries forward instead of being reabsorbed.
+    A voided extension is ignored along with the rest of the voided invoice.
+    """
+    adjusted = [i.period_end for i in live_invoices(invoices) if i.period_end_adjusted]
+    return max(adjusted) + timedelta(days=1) if adjusted else sub.start_date
 
 
 def format_invoice_number(prefix: str, year: int, seq: int) -> str:
@@ -107,16 +174,23 @@ async def generate_missing(
     today = date.today()
     created = 0
     for sub in subs:
-        existing = set(
+        invoices = list(
             (
                 await session.scalars(
-                    sa.select(Invoice.period_label).where(Invoice.subscription_id == sub.id)
+                    sa.select(Invoice).where(Invoice.subscription_id == sub.id)
                 )
             ).all()
         )
-        amount = effective_rate(sub.service.rate, sub.discount_pct)
-        for label, issue_date in missing_periods(
-            sub.start_date, sub.service.billing_interval, existing, today
+        live = live_invoices(invoices)
+        existing_starts = {i.period_start for i in live}
+        covered = [(i.period_start, i.period_end) for i in live]
+        amount = subscription_amount(sub)
+        for label, issue_date, period_end in missing_periods(
+            billing_anchor(sub, invoices),
+            sub.service.billing_interval,
+            existing_starts,
+            today,
+            covered,
         ):
             session.add(
                 Invoice(
@@ -126,6 +200,8 @@ async def generate_missing(
                     client_id=sub.client_id,
                     subscription_id=sub.id,
                     period_label=label,
+                    period_start=issue_date,
+                    period_end=period_end,
                     issue_date=issue_date,
                     amount=amount,
                 )

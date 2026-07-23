@@ -5,6 +5,7 @@ from tests.conftest import (
     create_client_rec,
     create_instructor,
     create_location,
+    create_pricing_option,
     create_service,
 )
 
@@ -12,10 +13,15 @@ from tests.conftest import (
 async def test_lists_are_org_scoped(client, headers_a, headers_b):
     await create_service(client, headers_a, sku="A-SKU")
     await create_client_rec(client, headers_a, name="Only A")
+    await create_pricing_option(client, headers_a, name="Only A Plan")
     for path in ("/api/services", "/api/clients"):
         res = await client.get(path, headers=headers_b)
         assert res.status_code == 200
         assert res.json()["items"] == []
+    # The catalog is an unpaginated list — B must not see A's tiers.
+    res = await client.get("/api/pricing-options", headers=headers_b)
+    assert res.status_code == 200
+    assert res.json() == []
 
 
 async def test_foreign_tenant_reads_and_mutations_404(client, headers_a, headers_b):
@@ -24,6 +30,7 @@ async def test_foreign_tenant_reads_and_mutations_404(client, headers_a, headers
     instructor = await create_instructor(client, headers_a)
     location = await create_location(client, headers_a)
     batch = await create_batch(client, headers_a, location["id"], instructor["id"])
+    option = await create_pricing_option(client, headers_a)
 
     checks = [
         ("/api/services/", service["id"]),
@@ -31,6 +38,7 @@ async def test_foreign_tenant_reads_and_mutations_404(client, headers_a, headers
         ("/api/instructors/", instructor["id"]),
         ("/api/locations/", location["id"]),
         ("/api/batches/", batch["id"]),
+        ("/api/pricing-options/", option["id"]),
     ]
     for prefix, obj_id in checks:
         assert (await client.get(prefix + obj_id, headers=headers_b)).status_code == 404
@@ -115,6 +123,49 @@ async def test_cross_org_reference_ids_rejected_as_404(client, headers_a, header
     )
     assert res.status_code == 404
 
+    # A service in org A may not price org B's option (§3.7).
+    option_b = await create_pricing_option(client, headers_b, name="B Plan")
+    res = await client.post(
+        "/api/services",
+        json={
+            "name": "Leaky",
+            "sku": "LEAK-1",
+            "service_type": "Subscription",
+            "delivery_mode": "Offline",
+            "rate": "100",
+            "pricing_options": [
+                {"pricing_option_id": option_b["id"],
+                 "pricing_mode": "discount_pct", "value": "10"}
+            ],
+        },
+        headers=headers_a,
+    )
+    assert res.status_code == 404
+
+    # Nor may a PATCH sneak it in afterwards.
+    service_a = await create_service(client, headers_a, sku="A-OK")
+    res = await client.patch(
+        f"/api/services/{service_a['id']}",
+        json={"pricing_options": [
+            {"pricing_option_id": option_b["id"],
+             "pricing_mode": "discount_pct", "value": "10"}
+        ]},
+        headers=headers_a,
+    )
+    assert res.status_code == 404
+
+    # Nor may a subscription reference it.
+    res = await client.post(
+        f"/api/clients/{client_a['id']}/subscriptions",
+        json={
+            "service_id": service_a["id"],
+            "start_date": "2026-07-01",
+            "pricing_option_id": option_b["id"],
+        },
+        headers=headers_a,
+    )
+    assert res.status_code == 404
+
 
 async def test_per_org_uniqueness(client, headers_a, headers_b):
     # Same SKU in two orgs is fine; duplicate within one org conflicts.
@@ -138,6 +189,14 @@ async def test_per_org_uniqueness(client, headers_a, headers_b):
     await create_location(client, headers_b, code="MAIN")
     res = await client.post(
         "/api/locations", json={"name": "Dup", "code": "MAIN"}, headers=headers_a
+    )
+    assert res.status_code == 409
+
+    # Two orgs may both call a tier "Corporate Plan"; one org may not have it twice.
+    await create_pricing_option(client, headers_a, name="Corporate Plan")
+    await create_pricing_option(client, headers_b, name="Corporate Plan")
+    res = await client.post(
+        "/api/pricing-options", json={"name": "Corporate Plan"}, headers=headers_a
     )
     assert res.status_code == 409
 

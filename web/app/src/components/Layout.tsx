@@ -67,9 +67,17 @@ export default function Layout() {
             )}
           </nav>
           {!isPlatform && user?.role === 'admin' && (
-            <NavLink to="/settings/members" className="text-sm text-yellow-pale/85 hover:text-white">
-              Members
-            </NavLink>
+            <>
+              <NavLink to="/settings/organisation" className="text-sm text-yellow-pale/85 hover:text-white">
+                Organisation
+              </NavLink>
+              <NavLink to="/settings/pricing-options" className="text-sm text-yellow-pale/85 hover:text-white">
+                Pricing options
+              </NavLink>
+              <NavLink to="/settings/members" className="text-sm text-yellow-pale/85 hover:text-white">
+                Members
+              </NavLink>
+            </>
           )}
           <div className="flex items-center gap-3">
             <span className="font-mono text-[11px] text-yellow-pale/70">

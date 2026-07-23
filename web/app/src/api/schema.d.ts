@@ -199,6 +199,49 @@ export interface paths {
         patch: operations["update_service_api_services__service_id__patch"];
         trace?: never;
     };
+    "/api/pricing-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pricing Options */
+        get: operations["list_pricing_options_api_pricing_options_get"];
+        put?: never;
+        /** Create Pricing Option */
+        post: operations["create_pricing_option_api_pricing_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/pricing-options/{option_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Pricing Option */
+        get: operations["get_pricing_option_api_pricing_options__option_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Archive Pricing Option
+         * @description Soft-delete, and only once nothing references it.
+         *
+         *     The FK is RESTRICT, so the database would reject this anyway — checking first
+         *     turns an opaque IntegrityError into a message naming what still uses the option.
+         */
+        delete: operations["archive_pricing_option_api_pricing_options__option_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Pricing Option */
+        patch: operations["update_pricing_option_api_pricing_options__option_id__patch"];
+        trace?: never;
+    };
     "/api/clients": {
         parameters: {
             query?: never;
@@ -527,7 +570,14 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Get Invoice Document
+         * @description The full invoice as a document — issuer, bill-to, and what the period covers.
+         *
+         *     One request so the printable view renders in a single pass, which matters when the
+         *     browser's print dialog snapshots the page.
+         */
+        get: operations["get_invoice_document_api_invoices__invoice_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1128,6 +1178,87 @@ export interface components {
             /** Joining Date */
             joining_date?: string | null;
         };
+        /**
+         * InvoiceDocumentOut
+         * @description Everything a printable invoice needs, in one request.
+         */
+        InvoiceDocumentOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Number */
+            number: string;
+            /**
+             * Client Id
+             * Format: uuid
+             */
+            client_id: string;
+            /**
+             * Subscription Id
+             * Format: uuid
+             */
+            subscription_id: string;
+            /** Client Name */
+            client_name?: string | null;
+            /** Service Name */
+            service_name?: string | null;
+            /** Period Label */
+            period_label: string;
+            /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period End Adjusted
+             * @default false
+             */
+            period_end_adjusted: boolean;
+            /**
+             * Issue Date
+             * Format: date
+             */
+            issue_date: string;
+            /** Amount */
+            amount: string;
+            status: components["schemas"]["InvoiceStatus"];
+            /**
+             * Overdue
+             * @default false
+             */
+            overdue: boolean;
+            /**
+             * Can Adjust Period
+             * @default false
+             */
+            can_adjust_period: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            billing_interval?: components["schemas"]["BillingInterval"] | null;
+            /** Service Description */
+            service_description?: string | null;
+            /** Pricing Option Name */
+            pricing_option_name?: string | null;
+            issued_by: components["schemas"]["InvoiceParty"];
+            bill_to: components["schemas"]["InvoiceParty"];
+            /**
+             * Includes
+             * @default []
+             */
+            includes: string[];
+        };
         /** InvoiceOut */
         InvoiceOut: {
             /**
@@ -1154,6 +1285,21 @@ export interface components {
             /** Period Label */
             period_label: string;
             /**
+             * Period Start
+             * Format: date
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date
+             */
+            period_end: string;
+            /**
+             * Period End Adjusted
+             * @default false
+             */
+            period_end_adjusted: boolean;
+            /**
              * Issue Date
              * Format: date
              */
@@ -1166,6 +1312,11 @@ export interface components {
              * @default false
              */
             overdue: boolean;
+            /**
+             * Can Adjust Period
+             * @default false
+             */
+            can_adjust_period: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1184,9 +1335,29 @@ export interface components {
              */
             outstanding_total: string;
         };
+        /**
+         * InvoiceParty
+         * @description One side of the invoice header — issuer or bill-to.
+         */
+        InvoiceParty: {
+            /** Name */
+            name: string;
+            /** Company Name */
+            company_name?: string | null;
+            /** Address */
+            address?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Gstin */
+            gstin?: string | null;
+        };
         /** InvoicePatch */
         InvoicePatch: {
-            status: components["schemas"]["InvoiceStatus"];
+            status?: components["schemas"]["InvoiceStatus"] | null;
+            /** Period End */
+            period_end?: string | null;
         };
         /**
          * InvoiceStatus
@@ -1346,6 +1517,14 @@ export interface components {
             /** Invoice Grace Days */
             invoice_grace_days: number;
             capacity_policy: components["schemas"]["CapacityPolicy"];
+            /** Address */
+            address?: string | null;
+            /** Billing Email */
+            billing_email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Gstin */
+            gstin?: string | null;
             /** Settings */
             settings: {
                 [key: string]: unknown;
@@ -1368,6 +1547,14 @@ export interface components {
             /** Invoice Grace Days */
             invoice_grace_days?: number | null;
             capacity_policy?: components["schemas"]["CapacityPolicy"] | null;
+            /** Address */
+            address?: string | null;
+            /** Billing Email */
+            billing_email?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Gstin */
+            gstin?: string | null;
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -1470,6 +1657,64 @@ export interface components {
             /** Description */
             description?: string | null;
         };
+        /**
+         * PricingMode
+         * @description How to read ServicePricingOption.value (§3.7).
+         *
+         *     fixed_rate   — value IS the amount billed, ignoring service.rate
+         *     discount_pct — value is a percentage off service.rate
+         * @enum {string}
+         */
+        PricingMode: "fixed_rate" | "discount_pct";
+        /** PricingOptionIn */
+        PricingOptionIn: {
+            /** Name */
+            name: string;
+            /** Description */
+            description?: string | null;
+            /**
+             * Applies To
+             * @default []
+             */
+            applies_to: components["schemas"]["AccountType"][];
+            /**
+             * Sort Order
+             * @default 0
+             */
+            sort_order: number;
+        };
+        /** PricingOptionOut */
+        PricingOptionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Description */
+            description: string | null;
+            /** Applies To */
+            applies_to: components["schemas"]["AccountType"][];
+            /** Sort Order */
+            sort_order: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PricingOptionPatch */
+        PricingOptionPatch: {
+            /** Name */
+            name?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Applies To */
+            applies_to?: components["schemas"]["AccountType"][] | null;
+            /** Sort Order */
+            sort_order?: number | null;
+        };
         /** RefreshIn */
         RefreshIn: {
             /** Refresh Token */
@@ -1502,7 +1747,7 @@ export interface components {
              * Pricing Options
              * @default []
              */
-            pricing_options: string[];
+            pricing_options: components["schemas"]["ServicePricingOptionIn"][];
             /**
              * Deliverables
              * @default []
@@ -1531,7 +1776,7 @@ export interface components {
             rate: string;
             cancellation_policy: components["schemas"]["CancellationPolicy"];
             /** Pricing Options */
-            pricing_options: string[];
+            pricing_options: components["schemas"]["ServicePricingOptionOut"][];
             /** Deliverables */
             deliverables: components["schemas"]["DeliverableOut"][];
             /**
@@ -1557,9 +1802,40 @@ export interface components {
             rate?: number | string | null;
             cancellation_policy?: components["schemas"]["CancellationPolicy"] | null;
             /** Pricing Options */
-            pricing_options?: string[] | null;
+            pricing_options?: components["schemas"]["ServicePricingOptionIn"][] | null;
             /** Deliverables */
             deliverables?: components["schemas"]["DeliverableIn"][] | null;
+        };
+        /** ServicePricingOptionIn */
+        ServicePricingOptionIn: {
+            /**
+             * Pricing Option Id
+             * Format: uuid
+             */
+            pricing_option_id: string;
+            pricing_mode: components["schemas"]["PricingMode"];
+            /** Value */
+            value: number | string;
+        };
+        /** ServicePricingOptionOut */
+        ServicePricingOptionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Pricing Option Id
+             * Format: uuid
+             */
+            pricing_option_id: string;
+            pricing_mode: components["schemas"]["PricingMode"];
+            /** Value */
+            value: string;
+            /** Option Name */
+            option_name?: string | null;
+            /** Effective Rate */
+            effective_rate?: string | null;
         };
         /**
          * ServiceType
@@ -1578,6 +1854,8 @@ export interface components {
              * Format: date
              */
             start_date: string;
+            /** Pricing Option Id */
+            pricing_option_id?: string | null;
             /**
              * Discount Pct
              * @default 0
@@ -1615,6 +1893,10 @@ export interface components {
              * Format: date
              */
             start_date: string;
+            /** Pricing Option Id */
+            pricing_option_id?: string | null;
+            /** Pricing Option Name */
+            pricing_option_name?: string | null;
             /** Discount Pct */
             discount_pct: string;
             status: components["schemas"]["SubscriptionStatus"];
@@ -2240,6 +2522,154 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ServiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_pricing_options_api_pricing_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingOptionOut"][];
+                };
+            };
+        };
+    };
+    create_pricing_option_api_pricing_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingOptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingOptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_pricing_option_api_pricing_options__option_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                option_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingOptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    archive_pricing_option_api_pricing_options__option_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                option_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_pricing_option_api_pricing_options__option_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                option_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingOptionPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingOptionOut"];
                 };
             };
             /** @description Validation Error */
@@ -3311,6 +3741,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GenerateMissingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_invoice_document_api_invoices__invoice_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceDocumentOut"];
                 };
             };
             /** @description Validation Error */

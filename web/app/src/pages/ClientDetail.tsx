@@ -2,9 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type {
-  BatchOut, ClientOut, EnrollmentOut, InvoiceOut, NoteOut, Page, ServiceOut, SubscriptionOut,
-} from '../api/types'
+import type { BatchOut, ClientOut, EnrollmentOut, InvoiceOut, NoteOut, Page, PricingOptionOut, ServiceOut, SubscriptionOut } from '../api/types'
 import { NOTE_CHANNELS } from '../api/types'
 import { age, fullDate, rupees } from '../lib/format'
 import {
@@ -149,7 +147,9 @@ export default function ClientDetail() {
 
       {tab === 'Notes' && <NotesTab clientId={client.id} />}
       {tab === 'Invoices' && <InvoicesTab clientId={client.id} />}
-      {tab === 'Subscriptions' && <SubscriptionsTab clientId={client.id} />}
+      {tab === 'Subscriptions' && (
+        <SubscriptionsTab clientId={client.id} accountType={client.account_type} />
+      )}
       {tab === 'Enrollments' && <EnrollmentsTab clientId={client.id} />}
 
       {editing && (
@@ -270,54 +270,152 @@ function InvoicesTab({ clientId }: { clientId: string }) {
 }
 
 export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; onChanged: () => void }) {
+  const [adjusting, setAdjusting] = useState<InvoiceOut | null>(null)
   const mark = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'paid' | 'void' }) =>
       api.patch(`/invoices/${id}`, { status }),
     onSuccess: onChanged,
   })
   return (
-    <Table head={['Number', 'Client', 'Service', 'Period', 'Issued', 'Amount', 'Status', '']}>
-      {invoices.map((inv) => (
-        <tr key={inv.id}>
-          <td className="px-4 py-2.5 font-mono text-xs">{inv.number}</td>
-          <td className="px-4 py-2.5">
-            <Link to={`/clients/${inv.client_id}`} className="text-orange-deep hover:text-orange">{inv.client_name}</Link>
-          </td>
-          <td className="px-4 py-2.5 text-xs">{inv.service_name}</td>
-          <td className="px-4 py-2.5 font-mono text-xs">{inv.period_label}</td>
-          <td className="px-4 py-2.5 font-mono text-xs">{fullDate(inv.issue_date)}</td>
-          <td className="px-4 py-2.5 font-mono text-xs">{rupees(inv.amount)}</td>
-          <td className="px-4 py-2.5">
-            <Badge tone={inv.status === 'paid' ? 'active' : inv.overdue ? 'pending' : 'draft'}>
-              {inv.overdue ? 'Overdue' : inv.status === 'due' ? 'Due' : inv.status === 'paid' ? 'Paid' : 'Void'}
-            </Badge>
-          </td>
-          <td className="px-4 py-2.5 text-right whitespace-nowrap">
-            {inv.status === 'due' && (
-              <>
-                <Button className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'paid' })}>
-                  Mark paid
-                </Button>{' '}
-                <Button intent="danger" className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'void' })}>
-                  Void
-                </Button>
-              </>
-            )}
-          </td>
-        </tr>
-      ))}
-    </Table>
+    <>
+      <Table head={['Number', 'Client', 'Service', 'Period', 'Covers', 'Amount', 'Status', '']}>
+        {invoices.map((inv) => (
+          <tr key={inv.id}>
+            <td className="px-4 py-2.5 font-mono text-xs">
+              <Link to={`/invoices/${inv.id}`} className="text-orange-deep hover:text-orange">
+                {inv.number}
+              </Link>
+            </td>
+            <td className="px-4 py-2.5">
+              <Link to={`/clients/${inv.client_id}`} className="text-orange-deep hover:text-orange">{inv.client_name}</Link>
+            </td>
+            <td className="px-4 py-2.5 text-xs">{inv.service_name}</td>
+            <td className="px-4 py-2.5 font-mono text-xs">{inv.period_label}</td>
+            <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">
+              {fullDate(inv.period_start)} – {fullDate(inv.period_end)}
+              {inv.period_end_adjusted && (
+                <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">adjusted</span>
+              )}
+            </td>
+            <td className="px-4 py-2.5 font-mono text-xs">{rupees(inv.amount)}</td>
+            <td className="px-4 py-2.5">
+              <Badge tone={inv.status === 'paid' ? 'active' : inv.overdue ? 'pending' : 'draft'}>
+                {inv.overdue ? 'Overdue' : inv.status === 'due' ? 'Due' : inv.status === 'paid' ? 'Paid' : 'Void'}
+              </Badge>
+            </td>
+            <td className="px-4 py-2.5 text-right whitespace-nowrap">
+              {inv.can_adjust_period && (
+                <>
+                  <Button className="!px-2 !py-1 text-xs" onClick={() => setAdjusting(inv)}>
+                    Adjust period
+                  </Button>{' '}
+                </>
+              )}
+              {inv.status === 'due' && (
+                <>
+                  <Button className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'paid' })}>
+                    Mark paid
+                  </Button>{' '}
+                  <Button intent="danger" className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'void' })}>
+                    Void
+                  </Button>
+                </>
+              )}
+            </td>
+          </tr>
+        ))}
+      </Table>
+      {adjusting && (
+        <AdjustPeriodModal
+          invoice={adjusting}
+          onClose={() => setAdjusting(null)}
+          onSaved={() => { setAdjusting(null); onChanged() }}
+        />
+      )}
+    </>
+  )
+}
+
+function AdjustPeriodModal({
+  invoice,
+  onClose,
+  onSaved,
+}: {
+  invoice: InvoiceOut
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [periodEnd, setPeriodEnd] = useState(invoice.period_end)
+  const [error, setError] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: async () => api.patch(`/invoices/${invoice.id}`, { period_end: periodEnd }),
+    onSuccess: onSaved,
+    onError: (e) => setError(errorMessage(e)),
+  })
+
+  const days =
+    Math.round(
+      (new Date(periodEnd).getTime() - new Date(invoice.period_end).getTime()) / 86400000,
+    ) || 0
+
+  return (
+    <Modal title={`Adjust period · ${invoice.number}`} onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="space-y-4">
+        <p className="text-sm text-muted">
+          Currently covers{' '}
+          <span className="font-mono">{fullDate(invoice.period_start)} – {fullDate(invoice.period_end)}</span>.
+          Move the end out to extend it, or in to close early once everything is
+          delivered. Every later period shifts with it. The amount stays{' '}
+          <span className="font-mono">{rupees(invoice.amount)}</span>
+          {invoice.status === 'paid' && ' and the invoice stays paid'}.
+        </p>
+        <Field
+          label="Period ends"
+          type="date"
+          required
+          min={invoice.period_start}
+          value={periodEnd}
+          onChange={(e) => setPeriodEnd(e.target.value)}
+        />
+        {days !== 0 && (
+          <p className="text-sm">
+            {days > 0
+              ? `Adds ${days} day${days === 1 ? '' : 's'}.`
+              : `Closes ${-days} day${days === -1 ? '' : 's'} early.`}{' '}
+            Next period starts{' '}
+            <span className="font-mono">
+              {fullDate(new Date(new Date(periodEnd).getTime() + 86400000).toISOString().slice(0, 10))}
+            </span>.
+          </p>
+        )}
+        <ErrorNote message={error} />
+        <div className="flex justify-end gap-3">
+          <Button type="button" onClick={onClose}>Cancel</Button>
+          <Button intent="accent" type="submit" disabled={save.isPending || periodEnd === invoice.period_end}>
+            Save period
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 
 // ---------------------------------------------------------------- subscriptions
 
-function SubscriptionsTab({ clientId }: { clientId: string }) {
+function SubscriptionsTab({
+  clientId,
+  accountType,
+}: {
+  clientId: string
+  accountType: ClientOut['account_type']
+}) {
   const queryClient = useQueryClient()
   const [adding, setAdding] = useState(false)
   const [serviceId, setServiceId] = useState('')
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
   const [discount, setDiscount] = useState('0')
+  const [pricingOptionId, setPricingOptionId] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const { data: subs } = useQuery({
@@ -330,12 +428,28 @@ function SubscriptionsTab({ clientId }: { clientId: string }) {
     enabled: adding,
   })
 
+  const { data: catalog } = useQuery({
+    queryKey: ['pricing-options'],
+    queryFn: async () => (await api.get<PricingOptionOut[]>('/pricing-options')).data,
+    enabled: adding,
+  })
+
+  const service = services?.items.find((s) => s.id === serviceId)
+  // Only tiers this service prices AND this client's account type qualifies for. The
+  // server enforces the same rule; this just keeps impossible choices off the screen.
+  const eligible = (service?.pricing_options ?? []).filter((p) => {
+    const option = catalog?.find((o) => o.id === p.pricing_option_id)
+    return option && (option.applies_to.length === 0 || option.applies_to.includes(accountType))
+  })
+  const chosen = eligible.find((p) => p.pricing_option_id === pricingOptionId)
+
   const add = useMutation({
     mutationFn: async () =>
       api.post(`/clients/${clientId}/subscriptions`, {
         service_id: serviceId,
         start_date: startDate,
-        discount_pct: discount || '0',
+        pricing_option_id: pricingOptionId || null,
+        discount_pct: pricingOptionId ? '0' : discount || '0',
       }),
     onSuccess: () => {
       setAdding(false)
@@ -359,14 +473,16 @@ function SubscriptionsTab({ clientId }: { clientId: string }) {
       {!subs?.length ? (
         <Panel><EmptyState title="No subscriptions" hint="Subscribing a client promotes them to Customer." /></Panel>
       ) : (
-        <Table head={['Service', 'Interval', 'Start', 'Rate', 'Discount', 'Effective', 'Status', '']}>
+        <Table head={['Service', 'Interval', 'Start', 'Rate', 'Pricing', 'Effective', 'Status', '']}>
           {subs.map((s) => (
             <tr key={s.id}>
               <td className="px-4 py-2.5">{s.service_name}</td>
               <td className="px-4 py-2.5 text-xs">{s.billing_interval}</td>
               <td className="px-4 py-2.5 font-mono text-xs">{fullDate(s.start_date)}</td>
               <td className="px-4 py-2.5 font-mono text-xs">{rupees(s.rate)}</td>
-              <td className="px-4 py-2.5 font-mono text-xs">{parseFloat(s.discount_pct)}%</td>
+              <td className="px-4 py-2.5 text-xs">
+                {s.pricing_option_name ?? `${parseFloat(s.discount_pct)}% discount`}
+              </td>
               <td className="px-4 py-2.5 font-mono text-xs">{rupees(s.effective_rate)}</td>
               <td className="px-4 py-2.5">
                 <Badge tone={s.status === 'active' ? 'active' : 'draft'}>{s.status === 'active' ? 'Active' : 'Ended'}</Badge>
@@ -397,10 +513,42 @@ function SubscriptionsTab({ clientId }: { clientId: string }) {
                 </option>
               ))}
             </SelectField>
+            {serviceId && eligible.length > 0 && (
+              <SelectField
+                label="Pricing option"
+                value={pricingOptionId}
+                onChange={(e) => setPricingOptionId(e.target.value)}
+              >
+                <option value="">Base rate</option>
+                {eligible.map((p) => {
+                  const option = catalog?.find((o) => o.id === p.pricing_option_id)
+                  return (
+                    <option key={p.pricing_option_id} value={p.pricing_option_id}>
+                      {option?.name} · {rupees(p.effective_rate ?? '0')}
+                    </option>
+                  )
+                })}
+              </SelectField>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <Field label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
-              <Field label="Discount %" type="number" min={0} max={100} step="0.01" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+              <Field
+                label="Discount %"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                value={pricingOptionId ? '0' : discount}
+                disabled={!!pricingOptionId}
+                onChange={(e) => setDiscount(e.target.value)}
+                hint={pricingOptionId ? 'The pricing option sets the price' : undefined}
+              />
             </div>
+            {chosen && (
+              <p className="text-sm text-muted">
+                Bills <span className="font-mono">{rupees(chosen.effective_rate ?? '0')}</span> per period.
+              </p>
+            )}
             <ErrorNote message={error} />
             <div className="flex justify-end gap-3">
               <Button type="button" onClick={() => setAdding(false)}>Cancel</Button>

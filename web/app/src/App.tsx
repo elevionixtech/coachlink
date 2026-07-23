@@ -7,13 +7,16 @@ import Dashboard from './pages/Dashboard'
 import Clients from './pages/Clients'
 import ClientDetail from './pages/ClientDetail'
 import Services from './pages/Services'
+import PricingOptions from './pages/PricingOptions'
 import Instructors from './pages/Instructors'
 import InstructorDetail from './pages/InstructorDetail'
 import Operations from './pages/Operations'
 import BatchDetail from './pages/BatchDetail'
 import Invoices from './pages/Invoices'
+import InvoiceView from './pages/InvoiceView'
 import Platform from './pages/Platform'
 import Members from './pages/Members'
+import Organisation from './pages/Organisation'
 
 function Guard({ children, platform = false }: { children: ReactNode; platform?: boolean }) {
   const user = useAuth((s) => s.user)
@@ -40,7 +43,10 @@ export default function App() {
         <Route path="/operations" element={<Guard><Operations /></Guard>} />
         <Route path="/operations/batches/:id" element={<Guard><BatchDetail /></Guard>} />
         <Route path="/invoices" element={<Guard><Invoices /></Guard>} />
+        <Route path="/invoices/:id" element={<Guard><InvoiceView /></Guard>} />
+        <Route path="/settings/organisation" element={<Guard><Organisation /></Guard>} />
         <Route path="/settings/members" element={<Guard><Members /></Guard>} />
+        <Route path="/settings/pricing-options" element={<Guard><PricingOptions /></Guard>} />
         <Route path="/platform" element={<Guard platform><Platform /></Guard>} />
       </Route>
       <Route path="*" element={<Navigate to={home} replace />} />

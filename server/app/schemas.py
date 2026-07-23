@@ -3,7 +3,7 @@ from datetime import date, datetime, time
 from decimal import Decimal
 from typing import TypeVar
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models import (
     AccountType,
@@ -15,6 +15,7 @@ from app.models import (
     Gender,
     InvoiceStatus,
     LifecycleStage,
+    PricingMode,
     Role,
     ServiceType,
     SubscriptionStatus,
@@ -78,6 +79,10 @@ class OrgSettingsOut(ORMModel):
     invoice_prefix: str
     invoice_grace_days: int
     capacity_policy: CapacityPolicy
+    address: str | None = None
+    billing_email: str | None = None
+    phone: str | None = None
+    gstin: str | None = None
     settings: dict
     subscription_starts_on: date | None
     subscription_ends_on: date | None
@@ -90,6 +95,10 @@ class OrgSettingsPatch(BaseModel):
     invoice_prefix: str | None = None
     invoice_grace_days: int | None = Field(default=None, ge=0)
     capacity_policy: CapacityPolicy | None = None
+    address: str | None = None
+    billing_email: str | None = None
+    phone: str | None = None
+    gstin: str | None = None
     settings: dict | None = None
 
 
@@ -179,6 +188,57 @@ class DeliverableOut(ORMModel):
     unit: str
 
 
+# ---------------------------------------------------- pricing options (§3.7)
+
+
+class PricingOptionIn(BaseModel):
+    name: str = Field(min_length=1)
+    description: str | None = None
+    # Empty means any account type may use the option.
+    applies_to: list[AccountType] = []
+    sort_order: int = 0
+
+
+class PricingOptionPatch(BaseModel):
+    name: str | None = Field(default=None, min_length=1)
+    description: str | None = None
+    applies_to: list[AccountType] | None = None
+    sort_order: int | None = None
+
+
+class PricingOptionOut(ORMModel):
+    id: uuid.UUID
+    name: str
+    description: str | None
+    applies_to: list[AccountType]
+    sort_order: int
+    created_at: datetime
+
+
+class ServicePricingOptionIn(BaseModel):
+    pricing_option_id: uuid.UUID
+    pricing_mode: PricingMode
+    value: Decimal = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _value_fits_mode(self) -> "ServicePricingOptionIn":
+        # `value` is polymorphic, so the bound depends on the mode — one CHECK
+        # constraint could not express this.
+        if self.pricing_mode is PricingMode.discount_pct and self.value > 100:
+            raise ValueError("A discount_pct value must be between 0 and 100")
+        return self
+
+
+class ServicePricingOptionOut(ORMModel):
+    id: uuid.UUID
+    pricing_option_id: uuid.UUID
+    pricing_mode: PricingMode
+    value: Decimal
+    option_name: str | None = None
+    # service.rate with this option applied — what a client on it actually pays.
+    effective_rate: Decimal | None = None
+
+
 class ServiceIn(BaseModel):
     name: str = Field(min_length=1)
     sku: str = Field(min_length=1)
@@ -189,8 +249,15 @@ class ServiceIn(BaseModel):
     billing_interval: BillingInterval = BillingInterval.na
     rate: Decimal = Field(ge=0)
     cancellation_policy: CancellationPolicy = CancellationPolicy.flexible
-    pricing_options: list[str] = []
+    pricing_options: list[ServicePricingOptionIn] = []
     deliverables: list[DeliverableIn] = []
+
+    @model_validator(mode="after")
+    def _options_unique(self) -> "ServiceIn":
+        ids = [p.pricing_option_id for p in self.pricing_options]
+        if len(ids) != len(set(ids)):
+            raise ValueError("A service may price each option only once")
+        return self
 
 
 class ServicePatch(BaseModel):
@@ -203,8 +270,15 @@ class ServicePatch(BaseModel):
     billing_interval: BillingInterval | None = None
     rate: Decimal | None = Field(default=None, ge=0)
     cancellation_policy: CancellationPolicy | None = None
-    pricing_options: list[str] | None = None
+    pricing_options: list[ServicePricingOptionIn] | None = None
     deliverables: list[DeliverableIn] | None = None
+
+    @model_validator(mode="after")
+    def _options_unique(self) -> "ServicePatch":
+        ids = [p.pricing_option_id for p in self.pricing_options or []]
+        if len(ids) != len(set(ids)):
+            raise ValueError("A service may price each option only once")
+        return self
 
 
 class ServiceOut(ORMModel):
@@ -218,7 +292,7 @@ class ServiceOut(ORMModel):
     billing_interval: BillingInterval
     rate: Decimal
     cancellation_policy: CancellationPolicy
-    pricing_options: list[str]
+    pricing_options: list[ServicePricingOptionOut]
     deliverables: list[DeliverableOut]
     created_at: datetime
 
@@ -463,6 +537,8 @@ class EnrollmentOut(ORMModel):
 class SubscriptionIn(BaseModel):
     service_id: uuid.UUID
     start_date: date
+    # When set, the option's price wins and discount_pct is forced to 0 (§3.7).
+    pricing_option_id: uuid.UUID | None = None
     discount_pct: Decimal = Field(default=Decimal("0"), ge=0, le=100)
 
 
@@ -480,6 +556,8 @@ class SubscriptionOut(ORMModel):
     rate: Decimal | None = None
     effective_rate: Decimal | None = None
     start_date: date
+    pricing_option_id: uuid.UUID | None = None
+    pricing_option_name: str | None = None
     discount_pct: Decimal
     status: SubscriptionStatus
     created_at: datetime
@@ -493,11 +571,40 @@ class InvoiceOut(ORMModel):
     client_name: str | None = None
     service_name: str | None = None
     period_label: str
+    period_start: date
+    period_end: date
+    period_end_adjusted: bool = False
     issue_date: date
     amount: Decimal
     status: InvoiceStatus
     overdue: bool = False
+    # True only for the newest live invoice of a subscription — the one PATCH will accept.
+    can_adjust_period: bool = False
     created_at: datetime
+
+
+class InvoiceParty(BaseModel):
+    """One side of the invoice header — issuer or bill-to."""
+
+    name: str
+    company_name: str | None = None
+    address: str | None = None
+    email: str | None = None
+    phone: str | None = None
+    gstin: str | None = None
+
+
+class InvoiceDocumentOut(InvoiceOut):
+    """Everything a printable invoice needs, in one request."""
+
+    currency: str
+    billing_interval: BillingInterval | None = None
+    service_description: str | None = None
+    pricing_option_name: str | None = None
+    issued_by: InvoiceParty
+    bill_to: InvoiceParty
+    # Deliverables of the service, e.g. "12 classes — Hatha yoga classes".
+    includes: list[str] = []
 
 
 class InvoicePage(Page[InvoiceOut]):
@@ -505,14 +612,24 @@ class InvoicePage(Page[InvoiceOut]):
 
 
 class InvoicePatch(BaseModel):
-    status: InvoiceStatus
+    status: InvoiceStatus | None = None
+    # Moving a period's end shifts every later one (§3.8) — out to extend, in to close
+    # early once a usage-based plan's deliverables are all delivered. period_start is
+    # never editable: moving it would gap or overlap against the previous invoice.
+    period_end: date | None = None
 
     @field_validator("status")
     @classmethod
-    def only_paid_or_void(cls, v: InvoiceStatus) -> InvoiceStatus:
+    def only_paid_or_void(cls, v: InvoiceStatus | None) -> InvoiceStatus | None:
         if v == InvoiceStatus.due:
             raise ValueError("status must be 'paid' or 'void'")
         return v
+
+    @model_validator(mode="after")
+    def _something_to_change(self) -> "InvoicePatch":
+        if self.status is None and self.period_end is None:
+            raise ValueError("Provide status or period_end")
+        return self
 
 
 class GenerateMissingIn(BaseModel):

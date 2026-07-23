@@ -39,8 +39,9 @@ def test_missing_periods_monthly_walk():
     )
     assert [p[0] for p in periods] == ["Apr 2026", "May 2026", "Jun 2026", "Jul 2026"]
     # Existing labels are skipped — that's the idempotency.
+    # An already-billed period start is skipped — that's the idempotency.
     periods = missing_periods(
-        date(2026, 4, 10), BillingInterval.monthly, {"May 2026"}, date(2026, 7, 21)
+        date(2026, 4, 10), BillingInterval.monthly, {date(2026, 5, 10)}, date(2026, 7, 21)
     )
     assert [p[0] for p in periods] == ["Apr 2026", "Jun 2026", "Jul 2026"]
 

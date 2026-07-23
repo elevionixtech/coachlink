@@ -129,6 +129,14 @@ async def create_service(client: AsyncClient, headers: dict, sku: str = "SKU-1",
     return res.json()
 
 
+async def create_pricing_option(
+    client: AsyncClient, headers: dict, name: str = "Corporate Plan", **kw
+):
+    res = await client.post("/api/pricing-options", json={"name": name, **kw}, headers=headers)
+    assert res.status_code == 201, res.text
+    return res.json()
+
+
 async def create_client_rec(client: AsyncClient, headers: dict, name: str = "Asha Rao", **kw):
     res = await client.post("/api/clients", json={"name": name, **kw}, headers=headers)
     assert res.status_code == 201, res.text

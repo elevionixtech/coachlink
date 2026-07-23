@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type { DeliverableIn, Page, ServiceIn, ServiceOut } from '../api/types'
+import type {
+  DeliverableIn, Page, PricingOptionOut, ServiceIn, ServiceOut, ServicePricingOptionIn,
+} from '../api/types'
 import {
   BILLING_INTERVALS, CANCELLATION_POLICIES, DELIVERABLE_UNITS, DELIVERY_MODES,
-  PRICING_OPTIONS, SERVICE_TYPES,
+  SERVICE_TYPES,
 } from '../api/types'
 import { rupees } from '../lib/format'
 import {
@@ -31,7 +33,11 @@ function ServiceForm({
     billing_interval: initial?.billing_interval ?? 'Monthly',
     rate: initial?.rate ?? '0',
     cancellation_policy: initial?.cancellation_policy ?? 'Flexible',
-    pricing_options: initial?.pricing_options ?? [],
+    pricing_options: initial?.pricing_options.map((p) => ({
+      pricing_option_id: p.pricing_option_id,
+      pricing_mode: p.pricing_mode,
+      value: p.value,
+    })) ?? [],
     deliverables: initial?.deliverables.map((d) => ({ name: d.name, quantity: d.quantity, unit: d.unit })) ?? [],
   })
   const [error, setError] = useState<string | null>(null)
@@ -48,6 +54,18 @@ function ServiceForm({
 
   const setDeliverable = (i: number, patch: Partial<DeliverableIn>) =>
     set('deliverables', form.deliverables!.map((d, j) => (i === j ? { ...d, ...patch } : d)))
+
+  // The org's configurable catalog — no fixed set of tiers any more.
+  const catalog = useQuery({
+    queryKey: ['pricing-options'],
+    queryFn: async () => (await api.get<PricingOptionOut[]>('/pricing-options')).data,
+  })
+  const priced = form.pricing_options ?? []
+  const setPriced = (i: number, patch: Partial<ServicePricingOptionIn>) =>
+    set('pricing_options', priced.map((p, j) => (i === j ? { ...p, ...patch } : p)))
+  const unpriced = (catalog.data ?? []).filter(
+    (o) => !priced.some((p) => p.pricing_option_id === o.id),
+  )
 
   return (
     <Modal title={initial ? 'Edit service' : 'New service'} onClose={onClose} wide>
@@ -78,27 +96,91 @@ function ServiceForm({
         </div>
         <TextArea label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} />
         <div>
-          <span className="eyebrow">Pricing options</span>
-          <div className="mt-1 flex gap-5">
-            {PRICING_OPTIONS.map((opt) => (
-              <label key={opt} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  className="accent-orange"
-                  checked={form.pricing_options!.includes(opt)}
-                  onChange={(e) =>
-                    set(
-                      'pricing_options',
-                      e.target.checked
-                        ? [...form.pricing_options!, opt]
-                        : form.pricing_options!.filter((o) => o !== opt),
-                    )
-                  }
-                />
-                {opt}
-              </label>
-            ))}
+          <div className="flex items-center justify-between">
+            <span className="eyebrow">Pricing options</span>
+            <Button
+              type="button"
+              className="!px-2 !py-1 text-xs"
+              disabled={unpriced.length === 0}
+              onClick={() =>
+                set('pricing_options', [
+                  ...priced,
+                  { pricing_option_id: unpriced[0].id, pricing_mode: 'discount_pct', value: '0' },
+                ])
+              }
+            >
+              Add pricing option
+            </Button>
           </div>
+          {catalog.data && catalog.data.length === 0 ? (
+            <p className="mt-2 text-sm text-muted">
+              No pricing options configured yet — add them under Pricing options in the sidebar.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-2">
+              {priced.map((p, i) => {
+                const isPct = p.pricing_mode === 'discount_pct'
+                return (
+                  <div key={i} className="flex items-end gap-2">
+                    <SelectField
+                      label="Option"
+                      value={p.pricing_option_id}
+                      onChange={(e) => setPriced(i, { pricing_option_id: e.target.value })}
+                      className="flex-1"
+                    >
+                      {catalog.data
+                        ?.filter(
+                          (o) =>
+                            o.id === p.pricing_option_id ||
+                            !priced.some((q) => q.pricing_option_id === o.id),
+                        )
+                        .map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                    </SelectField>
+                    <SelectField
+                      label="Priced as"
+                      value={p.pricing_mode}
+                      onChange={(e) => setPriced(i, { pricing_mode: e.target.value as 'discount_pct' | 'fixed_rate' })}
+                      className="w-44"
+                    >
+                      <option value="discount_pct">Discount %</option>
+                      <option value="fixed_rate">Fixed rate ₹</option>
+                    </SelectField>
+                    <Field
+                      label={isPct ? 'Discount (%)' : 'Rate (₹)'}
+                      type="number"
+                      min={0}
+                      max={isPct ? 100 : undefined}
+                      required
+                      value={String(p.value)}
+                      onChange={(e) => setPriced(i, { value: e.target.value })}
+                      className="w-32"
+                    />
+                    <Button
+                      type="button"
+                      intent="danger"
+                      className="!px-2 !py-2 text-xs"
+                      onClick={() => set('pricing_options', priced.filter((_, j) => j !== i))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )
+              })}
+              {priced.length > 0 && (
+                <p className="text-xs text-muted">
+                  {priced.map((p) => {
+                    const option = catalog.data?.find((o) => o.id === p.pricing_option_id)
+                    const rate = Number(form.rate)
+                    const amount =
+                      p.pricing_mode === 'fixed_rate'
+                        ? Number(p.value)
+                        : Math.round(rate * (1 - Number(p.value) / 100))
+                    return `${option?.name ?? 'Option'}: ${rupees(String(amount))}`
+                  }).join(' · ')}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div>

@@ -1,10 +1,11 @@
 import uuid
 from datetime import UTC, datetime
+from decimal import Decimal
 
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
-from app.billing import effective_rate
+from app.billing import subscription_amount
 from app.deps import OrgUser, SessionDep
 from app.models import (
     AccountType,
@@ -13,6 +14,7 @@ from app.models import (
     Enrollment,
     Invoice,
     LifecycleStage,
+    PricingOption,
     Service,
     Subscription,
 )
@@ -201,13 +203,41 @@ async def add_note(
 # ---------------------------------------------------------------- subscriptions
 
 
+async def _check_option_allowed(
+    session: SessionDep,
+    org_id: uuid.UUID,
+    client: Client,
+    service: Service,
+    option_id: uuid.UUID,
+) -> None:
+    """A subscription may only use an option the service prices and the client qualifies
+    for (§3.7). Eligibility is enforced here, not merely hidden in the UI."""
+    option = await get_owned_or_404(session, PricingOption, option_id, org_id)
+
+    if not any(p.pricing_option_id == option_id for p in service.pricing_options):
+        raise HTTPException(
+            422, detail=f"Service '{service.name}' has no price for '{option.name}'"
+        )
+    # An empty applies_to means the option is open to every account type.
+    if option.applies_to and client.account_type not in option.applies_to:
+        allowed = ", ".join(option.applies_to)
+        raise HTTPException(
+            422,
+            detail=(
+                f"'{option.name}' is only available to {allowed} clients — "
+                f"{client.name} is {client.account_type}"
+            ),
+        )
+
+
 def subscription_out(sub: Subscription) -> SubscriptionOut:
     out = SubscriptionOut.model_validate(sub)
     out.client_name = sub.client.name
     out.service_name = sub.service.name
     out.billing_interval = sub.service.billing_interval
     out.rate = sub.service.rate
-    out.effective_rate = effective_rate(sub.service.rate, sub.discount_pct)
+    out.effective_rate = subscription_amount(sub)
+    out.pricing_option_name = sub.pricing_option.name if sub.pricing_option else None
     return out
 
 
@@ -231,8 +261,16 @@ async def create_subscription(
     client_id: uuid.UUID, body: SubscriptionIn, ctx: OrgUser, session: SessionDep
 ) -> SubscriptionOut:
     client = await get_owned_or_404(session, Client, client_id, ctx.org.id)
-    await get_owned_or_404(session, Service, body.service_id, ctx.org.id)
-    sub = Subscription(client_id=client_id, **body.model_dump())
+    service = await get_owned_or_404(session, Service, body.service_id, ctx.org.id)
+    data = body.model_dump()
+    if body.pricing_option_id is not None:
+        await _check_option_allowed(
+            session, ctx.org.id, client, service, body.pricing_option_id
+        )
+        # The option sets the price outright, so never store a discount that is ignored
+        # at invoice time (§3.7) — same normalisation idiom as _normalise_account_fields.
+        data["discount_pct"] = Decimal("0")
+    sub = Subscription(client_id=client_id, **data)
     session.add(sub)
     # Creating a subscription promotes the client to Customer if not already (§5.1).
     if client.lifecycle_stage != LifecycleStage.customer:
@@ -249,7 +287,7 @@ async def create_subscription(
 async def list_client_invoices(
     client_id: uuid.UUID, ctx: OrgUser, session: SessionDep
 ) -> list[InvoiceOut]:
-    from app.routers.invoices import invoice_out
+    from app.routers.invoices import invoice_out, latest_period_starts
 
     await get_owned_or_404(session, Client, client_id, ctx.org.id)
     invoices = (
@@ -259,7 +297,8 @@ async def list_client_invoices(
             .order_by(Invoice.issue_date.desc(), Invoice.created_at.desc())
         )
     ).all()
-    return [invoice_out(i, ctx.org.invoice_grace_days) for i in invoices]
+    latest = await latest_period_starts(session, [i.subscription_id for i in invoices])
+    return [invoice_out(i, ctx.org.invoice_grace_days, latest) for i in invoices]
 
 
 @router.get("/{client_id}/enrollments")

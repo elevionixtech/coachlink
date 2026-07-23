@@ -108,6 +108,17 @@ class CapacityPolicy(enum.StrEnum):
     block = "block"
 
 
+class PricingMode(enum.StrEnum):
+    """How to read ServicePricingOption.value (§3.7).
+
+    fixed_rate   — value IS the amount billed, ignoring service.rate
+    discount_pct — value is a percentage off service.rate
+    """
+
+    fixed_rate = "fixed_rate"
+    discount_pct = "discount_pct"
+
+
 class TimestampMixin:
     id: Mapped[uuid.UUID] = mapped_column(sa.Uuid, primary_key=True, default=uuid.uuid4)
     created_at: Mapped[datetime] = mapped_column(
@@ -143,6 +154,12 @@ class Organisation(TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(sa.Text, default="INR", nullable=False)
     timezone: Mapped[str] = mapped_column(sa.Text, default="Asia/Kolkata", nullable=False)
     invoice_prefix: Mapped[str] = mapped_column(sa.Text, default="INV", nullable=False)
+    # Billing identity printed on every invoice (§3.9). Real columns rather than
+    # settings JSON: a tax invoice needs these to be queryable and explicit.
+    address: Mapped[str | None] = mapped_column(sa.Text)
+    billing_email: Mapped[str | None] = mapped_column(sa.Text)
+    phone: Mapped[str | None] = mapped_column(sa.Text)
+    gstin: Mapped[str | None] = mapped_column(sa.Text)
     invoice_grace_days: Mapped[int] = mapped_column(sa.Integer, default=7, nullable=False)
     capacity_policy: Mapped[CapacityPolicy] = mapped_column(
         str_enum(CapacityPolicy, "capacity_policy"), default=CapacityPolicy.warn, nullable=False
@@ -191,6 +208,23 @@ class ArchivedMixin:
     archived_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True))
 
 
+class PricingOption(TimestampMixin, OrgMixin, ArchivedMixin, Base):
+    """Org-configurable pricing tier ("Corporate Plan", "Student", ...) — §3.7.
+
+    The catalog is per-org and open-ended; services opt in via ServicePricingOption
+    and set their own price for each.
+    """
+
+    __tablename__ = "pricing_option"
+    __table_args__ = (UniqueConstraint("org_id", "name", name="pricing_option_name_per_org"),)
+
+    name: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(sa.Text)
+    # Account types eligible for this option; empty list means "anyone".
+    applies_to: Mapped[list[str]] = mapped_column(JSONVariant, default=list, nullable=False)
+    sort_order: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
+
+
 class Service(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     __tablename__ = "service"
     __table_args__ = (UniqueConstraint("org_id", "sku", name="service_sku_per_org"),)
@@ -216,8 +250,10 @@ class Service(TimestampMixin, OrgMixin, ArchivedMixin, Base):
         default=CancellationPolicy.flexible,
         nullable=False,
     )
-    pricing_options: Mapped[list[str]] = mapped_column(
-        JSONVariant, default=list, nullable=False
+    pricing_options: Mapped[list["ServicePricingOption"]] = relationship(
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="ServicePricingOption.created_at",
     )
 
     deliverables: Mapped[list["ServiceDeliverable"]] = relationship(
@@ -234,6 +270,32 @@ class ServiceDeliverable(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(sa.Text, nullable=False)
     quantity: Mapped[int] = mapped_column(sa.Integer, nullable=False)
     unit: Mapped[str] = mapped_column(sa.Text, nullable=False)
+
+
+class ServicePricingOption(TimestampMixin, Base):
+    """What one service charges under one pricing option (§3.7).
+
+    Child of service — no org_id; tenancy walks up through the parent, as with
+    ServiceDeliverable. RESTRICT on the option keeps an in-use tier from vanishing.
+    """
+
+    __tablename__ = "service_pricing_option"
+    __table_args__ = (
+        UniqueConstraint("service_id", "pricing_option_id", name="service_pricing_option_once"),
+    )
+
+    service_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("service.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    pricing_option_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("pricing_option.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    pricing_mode: Mapped[PricingMode] = mapped_column(
+        str_enum(PricingMode, "pricing_mode"), nullable=False
+    )
+    value: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
+
+    option: Mapped[PricingOption] = relationship(lazy="joined")
 
 
 class Client(TimestampMixin, OrgMixin, ArchivedMixin, Base):
@@ -369,6 +431,11 @@ class Subscription(TimestampMixin, Base):
         ForeignKey("service.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     start_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    # Null means base rate. When set, the option's price wins outright and
+    # discount_pct is forced to 0 on write (§3.7) — never a stored-but-ignored value.
+    pricing_option_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("pricing_option.id", ondelete="RESTRICT"), index=True
+    )
     discount_pct: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal("0"), nullable=False
     )
@@ -380,12 +447,26 @@ class Subscription(TimestampMixin, Base):
 
     client: Mapped[Client] = relationship(lazy="joined")
     service: Mapped[Service] = relationship(lazy="joined")
+    pricing_option: Mapped[PricingOption | None] = relationship(lazy="joined")
 
 
 class Invoice(TimestampMixin, Base):
     __tablename__ = "invoice"
+    # Keyed on period_start, not period_label: once end dates are editable a label like
+    # "Jul 2026" can legitimately describe two different periods (§3.8).
+    #
+    # Partial, excluding void: a voided invoice is ignored by generation, so its period
+    # is re-billed — and the replacement has to be able to sit alongside the voided row.
+    # Live invoices are still one-per-period, which is what idempotency rests on.
     __table_args__ = (
-        UniqueConstraint("subscription_id", "period_label", name="invoice_one_per_period"),
+        sa.Index(
+            "invoice_one_per_period",
+            "subscription_id",
+            "period_start",
+            unique=True,
+            postgresql_where=sa.text("status <> 'void'"),
+            sqlite_where=sa.text("status <> 'void'"),
+        ),
     )
 
     number: Mapped[str] = mapped_column(sa.Text, nullable=False, index=True)
@@ -396,6 +477,13 @@ class Invoice(TimestampMixin, Base):
         ForeignKey("subscription.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     period_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
+    period_start: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    period_end: Mapped[date] = mapped_column(sa.Date, nullable=False)
+    # Set when a human edits period_end. Generation re-anchors from the latest adjusted
+    # invoice, so an extension shifts every later period instead of being swallowed.
+    period_end_adjusted: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
     issue_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
     status: Mapped[InvoiceStatus] = mapped_column(
