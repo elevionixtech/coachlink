@@ -20,6 +20,25 @@ Full specification: `docs/CoachLink Spec.dc.html` · data model: `docs/CoachLink
 - Python 3.12+ with `uv`
 - Node 20+
 
+## Quick start
+
+```bash
+scripts/setup.sh     # deps, database, migrations, demo data (safe to re-run)
+scripts/start.sh     # postgres if needed, backend on 8200, frontend on 5173
+scripts/stop.sh      # stop backend + frontend
+```
+
+`start.sh` runs both servers detached; logs and pids land in `.run/` (gitignored), so
+`tail -f .run/api.log` follows the backend and `scripts/start.sh --logs` follows both.
+Re-running `start.sh` is a no-op if the stack is already up.
+
+`stop.sh` leaves PostgreSQL running, since the Homebrew cluster is shared with other
+projects on the machine — pass `--with-db` to stop it too.
+
+Ports come from the environment if set: `API_PORT`, `WEB_PORT`, `PG_PORT`, `DB_NAME`.
+
+The manual steps below are what those scripts automate; use them if you want finer control.
+
 ## Setup
 
 ### 1. Database

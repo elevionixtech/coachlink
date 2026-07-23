@@ -9,3 +9,6 @@ __pycache__/
 .ruff_cache/
 .mypy_cache/
 .env
+
+# local dev runtime (pids, logs)
+.run/

@@ -11,6 +11,11 @@ changing business rules. FastAPI backend in `server/`, React frontend in `web/ap
 
 ## Commands
 
+Whole stack (from the repo root) — `scripts/setup.sh` (deps + schema + seed),
+`scripts/start.sh` (postgres + backend + frontend, detached, logs in `.run/`),
+`scripts/stop.sh` (leaves the shared postgres up unless given `--with-db`).
+The per-service commands below are what those wrap.
+
 Backend (from `server/`, uses uv):
 
 ```bash
