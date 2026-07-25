@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type { BatchIn, BatchOut, EnrollmentOut, InstructorOut, LocationIn, LocationOut, Page } from '../api/types'
+import type { BatchIn, BatchOut, EnrollmentOut, InstructorOut, LocationIn, LocationOut, Page, ServiceOut } from '../api/types'
 import { BATCH_STATUSES, LOCATION_TYPES } from '../api/types'
 import { fullDate, shortTime } from '../lib/format'
 import {
@@ -171,6 +171,7 @@ export function BatchForm({
     start_time: initial?.start_time ?? null,
     end_time: initial?.end_time ?? null,
     description: initial?.description ?? '',
+    service_ids: initial?.services.map((s) => s.id) ?? [],
   })
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof BatchIn, v: unknown) => setForm((f) => ({ ...f, [k]: v }))
@@ -183,6 +184,13 @@ export function BatchForm({
     queryKey: ['instructors', ''],
     queryFn: async () => (await api.get<Page<InstructorOut>>('/instructors', { params: { limit: 200 } })).data,
   })
+  const { data: services } = useQuery({
+    queryKey: ['services', '', ''],
+    queryFn: async () => (await api.get<Page<ServiceOut>>('/services', { params: { limit: 200 } })).data,
+  })
+  const serviceIds = form.service_ids ?? []
+  const toggleService = (id: string, on: boolean) =>
+    set('service_ids', on ? [...serviceIds, id] : serviceIds.filter((s) => s !== id))
 
   const save = useMutation({
     mutationFn: async () => {
@@ -224,6 +232,26 @@ export function BatchForm({
           <Field label="End time" type="time" value={form.end_time ?? ''} onChange={(e) => set('end_time', e.target.value || null)} />
         </div>
         <Field label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} />
+        <div>
+          <span className="eyebrow">Services delivered</span>
+          <p className="mt-0.5 mb-2 text-xs text-brown-mid">
+            Only clients with an active subscription to a listed service can enrol. Leave
+            empty to let anyone enrol.
+          </p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {services?.items.map((s) => (
+              <label key={s.id} className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-orange"
+                  checked={serviceIds.includes(s.id)}
+                  onChange={(e) => toggleService(s.id, e.target.checked)}
+                />
+                {s.name} <span className="font-mono text-xs text-brown-mid">({s.sku})</span>
+              </label>
+            ))}
+          </div>
+        </div>
         <ErrorNote message={error} />
         <div className="flex justify-end gap-3">
           <Button type="button" onClick={onClose}>Cancel</Button>

@@ -5,7 +5,16 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
 from app.deps import OrgUser, SessionDep
-from app.models import Batch, Enrollment, Instructor, Location
+from app.models import (
+    Batch,
+    Client,
+    Enrollment,
+    Instructor,
+    Location,
+    Service,
+    Subscription,
+    SubscriptionStatus,
+)
 from app.routers.common import (
     PAGE_LIMIT_DEFAULT,
     clamp_limit,
@@ -13,7 +22,7 @@ from app.routers.common import (
     next_cursor,
     not_archived,
 )
-from app.schemas import BatchIn, BatchOut, BatchPatch, EnrollmentOut, Page
+from app.schemas import BatchIn, BatchOut, BatchPatch, ClientRef, EnrollmentOut, Page
 
 router = APIRouter(prefix="/batches", tags=["batches"])
 
@@ -101,14 +110,28 @@ async def list_batches(
     )
 
 
+async def _owned_services(
+    session: SessionDep, org_id: uuid.UUID, service_ids: list[uuid.UUID]
+) -> list[Service]:
+    """Resolve the batch's service ids, each verified to belong to the caller's org."""
+    return [
+        await get_owned_or_404(session, Service, sid, org_id) for sid in service_ids
+    ]
+
+
 @router.post("", status_code=201)
 async def create_batch(body: BatchIn, ctx: OrgUser, session: SessionDep) -> BatchOut:
     await _check_code_free(session, ctx.org.id, body.code)
     # FK ids arriving in the body are verified to belong to the caller's org (§5.6).
     await get_owned_or_404(session, Location, body.location_id, ctx.org.id)
     await get_owned_or_404(session, Instructor, body.instructor_id, ctx.org.id)
+    services = await _owned_services(session, ctx.org.id, body.service_ids)
     _validate_windows(body)
-    batch = Batch(org_id=ctx.org.id, **body.model_dump())
+    batch = Batch(
+        org_id=ctx.org.id,
+        **body.model_dump(exclude={"service_ids"}),
+        services=services,
+    )
     session.add(batch)
     await session.commit()
     await session.refresh(batch)
@@ -149,12 +172,44 @@ async def batch_roster(
     ]
 
 
+@router.get("/{batch_id}/eligible-clients")
+async def eligible_clients(
+    batch_id: uuid.UUID, ctx: OrgUser, session: SessionDep
+) -> list[ClientRef]:
+    """Clients who may still enrol in this batch — those with an active subscription to
+    one of its services (§5.5), minus anyone already enrolled. A batch with no listed
+    service is open, so every not-yet-enrolled client qualifies."""
+    batch = await get_owned_or_404(session, Batch, batch_id, ctx.org.id)
+
+    enrolled = sa.select(Enrollment.client_id).where(Enrollment.batch_id == batch.id)
+    stmt = (
+        sa.select(Client)
+        .where(Client.org_id == ctx.org.id, not_archived(Client), Client.id.notin_(enrolled))
+        .order_by(Client.name)
+    )
+
+    service_ids = [s.id for s in batch.services]
+    if service_ids:
+        stmt = (
+            stmt.join(Subscription, Subscription.client_id == Client.id)
+            .where(
+                Subscription.service_id.in_(service_ids),
+                Subscription.status == SubscriptionStatus.active,
+            )
+            .distinct()
+        )
+
+    rows = (await session.scalars(stmt)).unique().all()
+    return [ClientRef.model_validate(c) for c in rows]
+
+
 @router.patch("/{batch_id}")
 async def update_batch(
     batch_id: uuid.UUID, body: BatchPatch, ctx: OrgUser, session: SessionDep
 ) -> BatchOut:
     batch = await get_owned_or_404(session, Batch, batch_id, ctx.org.id)
     data = body.model_dump(exclude_unset=True)
+    service_ids = data.pop("service_ids", None)
     if "code" in data and data["code"] != batch.code:
         await _check_code_free(session, ctx.org.id, data["code"], exclude_id=batch.id)
     if "location_id" in data:
@@ -164,6 +219,8 @@ async def update_batch(
     _validate_windows(body, batch)
     for key, value in data.items():
         setattr(batch, key, value)
+    if service_ids is not None:
+        batch.services = await _owned_services(session, ctx.org.id, service_ids)
     await session.commit()
     await session.refresh(batch)
     counts = await enrolled_counts(session, [batch.id])

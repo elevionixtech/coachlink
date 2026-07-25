@@ -372,6 +372,20 @@ class Location(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     parallel_batches: Mapped[int | None] = mapped_column(sa.Integer)
 
 
+# Which services a batch delivers (§5.5). A client may enrol only if they hold an active
+# subscription to one of these; a batch with no linked service stays open to anyone.
+batch_service = sa.Table(
+    "batch_service",
+    Base.metadata,
+    sa.Column(
+        "batch_id", sa.Uuid, sa.ForeignKey("batch.id", ondelete="CASCADE"), primary_key=True
+    ),
+    sa.Column(
+        "service_id", sa.Uuid, sa.ForeignKey("service.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
+
+
 class Batch(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     __tablename__ = "batch"
     __table_args__ = (
@@ -401,6 +415,9 @@ class Batch(TimestampMixin, OrgMixin, ArchivedMixin, Base):
 
     location: Mapped[Location] = relationship(lazy="joined")
     instructor: Mapped[Instructor] = relationship(lazy="joined")
+    services: Mapped[list["Service"]] = relationship(
+        secondary=batch_service, lazy="selectin", order_by="Service.name"
+    )
 
 
 class Enrollment(TimestampMixin, Base):
@@ -438,6 +455,12 @@ class Subscription(TimestampMixin, Base):
     )
     discount_pct: Mapped[Decimal] = mapped_column(
         sa.Numeric(5, 2), default=Decimal("0"), nullable=False
+    )
+    # Signed carry from payment differences (§3.8): positive means the client underpaid
+    # and owes it on the next invoice; negative is a credit that reduces the next one.
+    # Consumed at generation; a credit larger than one invoice rolls forward.
+    carry_balance: Mapped[Decimal] = mapped_column(
+        sa.Numeric(12, 2), default=Decimal("0"), nullable=False
     )
     status: Mapped[SubscriptionStatus] = mapped_column(
         str_enum(SubscriptionStatus, "subscription_status"),
@@ -486,6 +509,14 @@ class Invoice(TimestampMixin, Base):
     )
     issue_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    # What was actually received, set when the invoice is marked paid. May differ from
+    # amount when a payment is settled short/over or the difference is carried forward.
+    paid_amount: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
+    # True only when a payment difference was carried onto the subscription's next
+    # invoice (not settled). Lets the listing surface the still-consequential ones.
+    difference_carried: Mapped[bool] = mapped_column(
+        sa.Boolean, default=False, nullable=False
+    )
     status: Mapped[InvoiceStatus] = mapped_column(
         str_enum(InvoiceStatus, "invoice_status"), default=InvoiceStatus.due, nullable=False
     )

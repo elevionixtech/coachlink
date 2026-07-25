@@ -184,7 +184,10 @@ async def generate_missing(
         live = live_invoices(invoices)
         existing_starts = {i.period_start for i in live}
         covered = [(i.period_start, i.period_end) for i in live]
-        amount = subscription_amount(sub)
+        base = subscription_amount(sub)
+        # Carry from earlier under/overpayments rides on the first invoice generated
+        # here; a credit bigger than one invoice rolls forward to the next (§3.8).
+        carry = sub.carry_balance
         for label, issue_date, period_end in missing_periods(
             billing_anchor(sub, invoices),
             sub.service.billing_interval,
@@ -192,6 +195,13 @@ async def generate_missing(
             today,
             covered,
         ):
+            applied = base + carry
+            if applied < 0:
+                amount = Decimal("0.00")
+                carry = applied  # remaining credit rolls to the next invoice
+            else:
+                amount = applied.quantize(Decimal("0.01"))
+                carry = Decimal("0")
             session.add(
                 Invoice(
                     number=format_invoice_number(
@@ -208,6 +218,7 @@ async def generate_missing(
             )
             org.next_invoice_seq += 1
             created += 1
+        sub.carry_balance = carry
     await session.flush()
     return created
 

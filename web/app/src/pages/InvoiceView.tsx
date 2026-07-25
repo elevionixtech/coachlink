@@ -143,9 +143,28 @@ export default function InvoiceView() {
         </table>
 
         <div className="print-keep mt-2 border-t-2 border-brown-deep pt-3 flex justify-between">
-          <span className="font-display font-bold">Total due</span>
+          <span className="font-display font-bold">
+            {inv.status === 'paid' ? 'Total' : 'Total due'}
+          </span>
           <span className="font-mono text-lg font-bold">{rupees(inv.amount)}</span>
         </div>
+
+        {inv.status === 'paid' && inv.paid_amount != null && (
+          <div className="print-keep mt-1 space-y-0.5 text-sm">
+            <div className="flex justify-between">
+              <span>Paid</span>
+              <span className="font-mono">{rupees(inv.paid_amount)}</span>
+            </div>
+            {inv.paid_amount !== inv.amount && (
+              <div className="flex justify-between text-muted">
+                <span>{Number(inv.paid_amount) < Number(inv.amount) ? 'Balance' : 'Overpaid'}</span>
+                <span className="font-mono">
+                  {rupees(String(Math.abs(Number(inv.amount) - Number(inv.paid_amount))))}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         <p className="mt-8 text-xs text-muted">
           {inv.currency} · Invoice {inv.number} for the period{' '}

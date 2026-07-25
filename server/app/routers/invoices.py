@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.billing import generate_missing, is_overdue
 from app.deps import OrgUser, SessionDep
-from app.models import Client, Invoice, InvoiceStatus
+from app.models import Client, Invoice, InvoiceStatus, SubscriptionStatus
 from app.routers.common import PAGE_LIMIT_DEFAULT, clamp_limit, get_owned_or_404, next_cursor
 from app.schemas import (
     GenerateMissingIn,
@@ -54,6 +54,11 @@ def invoice_out(
     out.can_adjust_period = invoice.status is not InvoiceStatus.void and (
         latest_starts is not None
         and latest_starts.get(invoice.subscription_id) == invoice.period_start
+    )
+    # A difference can only be carried forward while the subscription still bills.
+    out.can_carry_forward = bool(
+        invoice.subscription
+        and invoice.subscription.status is SubscriptionStatus.active
     )
     return out
 
@@ -164,12 +169,43 @@ async def update_invoice(
         invoice.period_end = body.period_end
         invoice.period_end_adjusted = True
 
-    if body.status is not None:
+    if body.status is InvoiceStatus.paid:
+        _record_payment(invoice, body)
+    elif body.status is not None:
         invoice.status = body.status
 
     await session.commit()
     latest = await latest_period_starts(session, [invoice.subscription_id])
     return invoice_out(invoice, ctx.org.invoice_grace_days, latest)
+
+
+def _record_payment(invoice: Invoice, body: InvoicePatch) -> None:
+    """Mark an invoice paid, recording what was received and handling any difference.
+
+    Settle (the default) closes the invoice at whatever was paid — a shortfall is
+    forgiven, an overpayment kept. Carry-forward instead moves the difference onto the
+    subscription's running balance, where the next generated invoice absorbs it: a
+    shortfall adds to it, an overpayment credits it (§3.8).
+    """
+    # No amount given means paid in full — the common case, one click.
+    paid = body.paid_amount if body.paid_amount is not None else invoice.amount
+    difference = invoice.amount - paid  # positive = shortfall, negative = overpayment
+
+    if difference != 0 and body.carry_forward:
+        sub = invoice.subscription
+        if sub is None or sub.status is not SubscriptionStatus.active:
+            raise HTTPException(
+                422,
+                detail=(
+                    "This subscription has no future invoice to carry the difference to "
+                    "— settle it instead."
+                ),
+            )
+        sub.carry_balance += difference
+        invoice.difference_carried = True
+
+    invoice.paid_amount = paid.quantize(Decimal("0.01"))
+    invoice.status = InvoiceStatus.paid
 
 
 @router.get("/{invoice_id}")
@@ -220,3 +256,32 @@ async def get_invoice_document(
             for d in (service.deliverables if service else [])
         ],
     )
+
+
+@router.delete("/{invoice_id}", status_code=204)
+async def delete_invoice(
+    invoice_id: uuid.UUID, ctx: OrgUser, session: SessionDep
+) -> None:
+    """Permanently remove an invoice — only ever a voided one.
+
+    A voided invoice bills nothing and generation already ignores it, so deleting it
+    changes no billing coverage; it just clears the audit row from the list. A due
+    invoice would only regenerate on the next run (void it first to cancel it), and a
+    paid invoice is a record of money received and is never destroyed. Deletion is the
+    deliberate second step after a void — cancel, then, if you want it gone, delete.
+    """
+    invoice = await session.get(Invoice, invoice_id)
+    if invoice is None or invoice.client.org_id != ctx.org.id:
+        raise HTTPException(404, detail="Invoice not found")
+
+    if invoice.status is not InvoiceStatus.void:
+        raise HTTPException(
+            422,
+            detail=(
+                f"Only a voided invoice can be deleted — this one is {invoice.status}. "
+                "Void it first to cancel it."
+            ),
+        )
+
+    await session.delete(invoice)
+    await session.commit()

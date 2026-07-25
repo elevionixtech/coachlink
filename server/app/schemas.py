@@ -465,6 +465,12 @@ class LocationOut(ORMModel):
     created_at: datetime
 
 
+class ServiceRef(ORMModel):
+    id: uuid.UUID
+    name: str
+    sku: str
+
+
 class BatchIn(BaseModel):
     name: str = Field(min_length=1)
     code: str = Field(min_length=1)
@@ -476,6 +482,8 @@ class BatchIn(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     description: str | None = None
+    # Services this batch delivers; empty leaves the batch open to any client (§5.5).
+    service_ids: list[uuid.UUID] = []
 
 
 class BatchPatch(BaseModel):
@@ -489,6 +497,7 @@ class BatchPatch(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     description: str | None = None
+    service_ids: list[uuid.UUID] | None = None
 
 
 class BatchOut(ORMModel):
@@ -505,6 +514,7 @@ class BatchOut(ORMModel):
     start_time: time | None
     end_time: time | None
     description: str | None
+    services: list[ServiceRef] = []
     enrolled_count: int = 0
     capacity: int | None = None
     created_at: datetime
@@ -559,6 +569,7 @@ class SubscriptionOut(ORMModel):
     pricing_option_id: uuid.UUID | None = None
     pricing_option_name: str | None = None
     discount_pct: Decimal
+    carry_balance: Decimal = Decimal("0")
     status: SubscriptionStatus
     created_at: datetime
 
@@ -576,10 +587,15 @@ class InvoiceOut(ORMModel):
     period_end_adjusted: bool = False
     issue_date: date
     amount: Decimal
+    paid_amount: Decimal | None = None
+    difference_carried: bool = False
     status: InvoiceStatus
     overdue: bool = False
     # True only for the newest live invoice of a subscription — the one PATCH will accept.
     can_adjust_period: bool = False
+    # True while the subscription is active, so a payment difference has a next invoice
+    # to carry to. When false, a mismatch must be settled.
+    can_carry_forward: bool = False
     created_at: datetime
 
 
@@ -617,6 +633,11 @@ class InvoicePatch(BaseModel):
     # early once a usage-based plan's deliverables are all delivered. period_start is
     # never editable: moving it would gap or overlap against the previous invoice.
     period_end: date | None = None
+    # When marking paid: the amount actually received. If it differs from the invoice,
+    # carry_forward decides whether the difference rides to the next invoice or the
+    # invoice is simply settled at what was paid.
+    paid_amount: Decimal | None = Field(default=None, ge=0)
+    carry_forward: bool = False
 
     @field_validator("status")
     @classmethod

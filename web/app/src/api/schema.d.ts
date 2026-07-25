@@ -580,7 +580,17 @@ export interface paths {
         get: operations["get_invoice_document_api_invoices__invoice_id__get"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete Invoice
+         * @description Permanently remove an invoice — only ever a voided one.
+         *
+         *     A voided invoice bills nothing and generation already ignores it, so deleting it
+         *     changes no billing coverage; it just clears the audit row from the list. A due
+         *     invoice would only regenerate on the next run (void it first to cancel it), and a
+         *     paid invoice is a record of money received and is never destroyed. Deletion is the
+         *     deliberate second step after a void — cancel, then, if you want it gone, delete.
+         */
+        delete: operations["delete_invoice_api_invoices__invoice_id__delete"];
         options?: never;
         head?: never;
         /** Update Invoice */
@@ -713,6 +723,11 @@ export interface components {
             end_time?: string | null;
             /** Description */
             description?: string | null;
+            /**
+             * Service Ids
+             * @default []
+             */
+            service_ids: string[];
         };
         /** BatchOut */
         BatchOut: {
@@ -751,6 +766,11 @@ export interface components {
             /** Description */
             description: string | null;
             /**
+             * Services
+             * @default []
+             */
+            services: components["schemas"]["ServiceRef"][];
+            /**
              * Enrolled Count
              * @default 0
              */
@@ -784,6 +804,8 @@ export interface components {
             end_time?: string | null;
             /** Description */
             description?: string | null;
+            /** Service Ids */
+            service_ids?: string[] | null;
         };
         /**
          * BatchStatus
@@ -1228,6 +1250,13 @@ export interface components {
             issue_date: string;
             /** Amount */
             amount: string;
+            /** Paid Amount */
+            paid_amount?: string | null;
+            /**
+             * Difference Carried
+             * @default false
+             */
+            difference_carried: boolean;
             status: components["schemas"]["InvoiceStatus"];
             /**
              * Overdue
@@ -1239,6 +1268,11 @@ export interface components {
              * @default false
              */
             can_adjust_period: boolean;
+            /**
+             * Can Carry Forward
+             * @default false
+             */
+            can_carry_forward: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1306,6 +1340,13 @@ export interface components {
             issue_date: string;
             /** Amount */
             amount: string;
+            /** Paid Amount */
+            paid_amount?: string | null;
+            /**
+             * Difference Carried
+             * @default false
+             */
+            difference_carried: boolean;
             status: components["schemas"]["InvoiceStatus"];
             /**
              * Overdue
@@ -1317,6 +1358,11 @@ export interface components {
              * @default false
              */
             can_adjust_period: boolean;
+            /**
+             * Can Carry Forward
+             * @default false
+             */
+            can_carry_forward: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1358,6 +1404,13 @@ export interface components {
             status?: components["schemas"]["InvoiceStatus"] | null;
             /** Period End */
             period_end?: string | null;
+            /** Paid Amount */
+            paid_amount?: number | string | null;
+            /**
+             * Carry Forward
+             * @default false
+             */
+            carry_forward: boolean;
         };
         /**
          * InvoiceStatus
@@ -1837,6 +1890,18 @@ export interface components {
             /** Effective Rate */
             effective_rate?: string | null;
         };
+        /** ServiceRef */
+        ServiceRef: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Sku */
+            sku: string;
+        };
         /**
          * ServiceType
          * @enum {string}
@@ -1899,6 +1964,11 @@ export interface components {
             pricing_option_name?: string | null;
             /** Discount Pct */
             discount_pct: string;
+            /**
+             * Carry Balance
+             * @default 0
+             */
+            carry_balance: string;
             status: components["schemas"]["SubscriptionStatus"];
             /**
              * Created At
@@ -3773,6 +3843,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["InvoiceDocumentOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_invoice_api_invoices__invoice_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

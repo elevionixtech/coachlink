@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type { BatchOut, ClientOut, EnrollmentOut, Page } from '../api/types'
+import type { BatchOut, ClientRef, EnrollmentOut } from '../api/types'
 import { fullDate, shortTime } from '../lib/format'
 import {
   Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
@@ -69,6 +69,24 @@ export default function BatchDetail() {
         <div>
           <div className="eyebrow">Description</div>
           <div className="mt-0.5 text-sm">{batch.description || '—'}</div>
+        </div>
+        <div className="col-span-2 lg:col-span-4">
+          <div className="eyebrow">Services offered</div>
+          <div className="mt-1 text-sm">
+            {batch.services.length === 0 ? (
+              <span className="text-brown-mid">Open to any client — no service required</span>
+            ) : (
+              <span className="flex flex-wrap gap-1.5">
+                {batch.services.map((s) => (
+                  <Link key={s.id} to={`/services`} className="no-underline">
+                    <Badge tone="draft">
+                      {s.name} <span className="font-mono">({s.sku})</span>
+                    </Badge>
+                  </Link>
+                ))}
+              </span>
+            )}
+          </div>
         </div>
       </Panel>
 
@@ -137,9 +155,11 @@ function EnrollModal({
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
 
-  const { data: clients } = useQuery({
-    queryKey: ['clients-for-enroll'],
-    queryFn: async () => (await api.get<Page<ClientOut>>('/clients', { params: { limit: 200 } })).data,
+  // Only clients eligible for THIS batch — subscribed to one of its services and not
+  // already enrolled. The server applies the same rule.
+  const { data: clients, isLoading } = useQuery({
+    queryKey: ['eligible-clients', batchId],
+    queryFn: async () => (await api.get<ClientRef[]>(`/batches/${batchId}/eligible-clients`)).data,
   })
 
   const enroll = useMutation({
@@ -149,15 +169,23 @@ function EnrollModal({
     onError: (e) => setError(errorMessage(e)),
   })
 
+  const noneEligible = !isLoading && clients?.length === 0
+
   return (
     <Modal title="Enroll client" onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); enroll.mutate() }} className="space-y-4">
-        <SelectField label="Client" required value={clientId} onChange={(e) => setClientId(e.target.value)}>
-          <option value="">Choose a client…</option>
-          {clients?.items.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}{c.name_hint ? ` — ${c.name_hint}` : ''}</option>
+        <SelectField label="Client" required value={clientId} onChange={(e) => setClientId(e.target.value)} disabled={noneEligible}>
+          <option value="">{noneEligible ? 'No eligible clients' : 'Choose a client…'}</option>
+          {clients?.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </SelectField>
+        {noneEligible && (
+          <p className="text-sm text-brown-mid">
+            No client has an active subscription to this batch's services (and isn't already
+            enrolled). Subscribe a client to one of those services first.
+          </p>
+        )}
         <Field label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
         <ErrorNote message={error} />
         <div className="flex justify-end gap-3">

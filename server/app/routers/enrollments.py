@@ -2,7 +2,14 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
 from app.deps import OrgUser, SessionDep
-from app.models import Batch, CapacityPolicy, Client, Enrollment
+from app.models import (
+    Batch,
+    CapacityPolicy,
+    Client,
+    Enrollment,
+    Subscription,
+    SubscriptionStatus,
+)
 from app.routers.common import (
     PAGE_LIMIT_DEFAULT,
     clamp_limit,
@@ -65,6 +72,27 @@ async def create_enrollment(
     )
     if duplicate:
         raise HTTPException(409, detail="Client is already enrolled in this batch")
+
+    # A batch that lists services only admits clients actively subscribed to one of them
+    # (§5.5). A batch with no listed service stays open to anyone.
+    batch_service_ids = [s.id for s in batch.services]
+    if batch_service_ids:
+        subscribed = await session.scalar(
+            sa.select(Subscription.id).where(
+                Subscription.client_id == body.client_id,
+                Subscription.service_id.in_(batch_service_ids),
+                Subscription.status == SubscriptionStatus.active,
+            )
+        )
+        if not subscribed:
+            names = ", ".join(s.name for s in batch.services)
+            raise HTTPException(
+                422,
+                detail=(
+                    "Client needs an active subscription to one of this batch's services "
+                    f"to enrol ({names})."
+                ),
+            )
 
     # Capacity comes from the batch's location; behavior follows the org policy (§5.5).
     capacity = batch.location.capacity_per_batch if batch.location else None

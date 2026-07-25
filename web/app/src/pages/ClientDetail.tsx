@@ -271,9 +271,16 @@ function InvoicesTab({ clientId }: { clientId: string }) {
 
 export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; onChanged: () => void }) {
   const [adjusting, setAdjusting] = useState<InvoiceOut | null>(null)
+  const [paying, setPaying] = useState<InvoiceOut | null>(null)
   const mark = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: 'paid' | 'void' }) =>
       api.patch(`/invoices/${id}`, { status }),
+    onSuccess: onChanged,
+  })
+  // Only a voided invoice is safe to delete — it bills nothing and generation ignores
+  // it. The server enforces the same rule.
+  const del = useMutation({
+    mutationFn: async (id: string) => api.delete(`/invoices/${id}`),
     onSuccess: onChanged,
   })
   return (
@@ -297,7 +304,19 @@ export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; 
                 <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">adjusted</span>
               )}
             </td>
-            <td className="px-4 py-2.5 font-mono text-xs">{rupees(inv.amount)}</td>
+            <td className="px-4 py-2.5 font-mono text-xs">
+              {rupees(inv.amount)}
+              {/* Only surface the paid amount when a difference was carried forward —
+                  it still affects a future invoice. Full payments and settled
+                  differences are closed, so they add nothing here. */}
+              {inv.status === 'paid' && inv.difference_carried && inv.paid_amount != null && (
+                <div className="text-[11px] text-orange-deep">
+                  paid {rupees(inv.paid_amount)} ·{' '}
+                  {rupees(String(Math.abs(Number(inv.amount) - Number(inv.paid_amount))))}{' '}
+                  {Number(inv.paid_amount) < Number(inv.amount) ? 'carried' : 'credited'}
+                </div>
+              )}
+            </td>
             <td className="px-4 py-2.5">
               <Badge tone={inv.status === 'paid' ? 'active' : inv.overdue ? 'pending' : 'draft'}>
                 {inv.overdue ? 'Overdue' : inv.status === 'due' ? 'Due' : inv.status === 'paid' ? 'Paid' : 'Void'}
@@ -313,13 +332,25 @@ export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; 
               )}
               {inv.status === 'due' && (
                 <>
-                  <Button className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'paid' })}>
+                  <Button className="!px-2 !py-1 text-xs" onClick={() => setPaying(inv)}>
                     Mark paid
                   </Button>{' '}
                   <Button intent="danger" className="!px-2 !py-1 text-xs" onClick={() => mark.mutate({ id: inv.id, status: 'void' })}>
                     Void
                   </Button>
                 </>
+              )}
+              {inv.status === 'void' && (
+                <Button
+                  intent="danger"
+                  className="!px-2 !py-1 text-xs"
+                  onClick={() => {
+                    if (confirm(`Delete ${inv.number} permanently? This voided invoice will be removed for good.`))
+                      del.mutate(inv.id)
+                  }}
+                >
+                  Delete
+                </Button>
               )}
             </td>
           </tr>
@@ -330,6 +361,13 @@ export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; 
           invoice={adjusting}
           onClose={() => setAdjusting(null)}
           onSaved={() => { setAdjusting(null); onChanged() }}
+        />
+      )}
+      {paying && (
+        <PaymentModal
+          invoice={paying}
+          onClose={() => setPaying(null)}
+          onSaved={() => { setPaying(null); onChanged() }}
         />
       )}
     </>
@@ -394,6 +432,96 @@ function AdjustPeriodModal({
           <Button type="button" onClick={onClose}>Cancel</Button>
           <Button intent="accent" type="submit" disabled={save.isPending || periodEnd === invoice.period_end}>
             Save period
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function PaymentModal({
+  invoice,
+  onClose,
+  onSaved,
+}: {
+  invoice: InvoiceOut
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const [amount, setAmount] = useState(invoice.amount)
+  // 'settle' closes the invoice at what was paid; 'carry' rides the difference forward.
+  const [handling, setHandling] = useState<'settle' | 'carry'>('settle')
+  const [error, setError] = useState<string | null>(null)
+
+  const paid = Number(amount)
+  const billed = Number(invoice.amount)
+  const diff = billed - paid // + = short, − = over
+  const mismatch = Number.isFinite(paid) && Math.abs(diff) >= 0.005
+
+  const save = useMutation({
+    mutationFn: async () =>
+      api.patch(`/invoices/${invoice.id}`, {
+        status: 'paid',
+        paid_amount: amount,
+        carry_forward: mismatch && handling === 'carry',
+      }),
+    onSuccess: onSaved,
+    onError: (e) => setError(errorMessage(e)),
+  })
+
+  return (
+    <Modal title={`Record payment · ${invoice.number}`} onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="space-y-4">
+        <p className="text-sm text-muted">
+          Billed <span className="font-mono">{rupees(invoice.amount)}</span>. Enter what was
+          actually received.
+        </p>
+        <Field
+          label="Amount received (₹)"
+          type="number"
+          min={0}
+          step="0.01"
+          required
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+        />
+
+        {mismatch && (
+          <div className="space-y-2 rounded-md bg-yellow-card p-3">
+            <p className="text-sm">
+              {diff > 0
+                ? `Short by ${rupees(String(diff))}.`
+                : `Over by ${rupees(String(-diff))}.`}{' '}
+              What should happen to the difference?
+            </p>
+            <label className="flex items-start gap-2 text-sm">
+              <input type="radio" className="mt-1 accent-orange" checked={handling === 'settle'}
+                onChange={() => setHandling('settle')} />
+              <span>
+                <span className="font-semibold">Settle</span> — close this invoice at{' '}
+                {rupees(amount)}. {diff > 0 ? 'The shortfall is written off.' : 'The extra is kept, no credit.'}
+              </span>
+            </label>
+            <label className={`flex items-start gap-2 text-sm ${invoice.can_carry_forward ? '' : 'opacity-50'}`}>
+              <input type="radio" className="mt-1 accent-orange" checked={handling === 'carry'}
+                disabled={!invoice.can_carry_forward}
+                onChange={() => setHandling('carry')} />
+              <span>
+                <span className="font-semibold">Carry forward</span> —{' '}
+                {diff > 0
+                  ? `add ${rupees(String(diff))} to this subscription's next invoice.`
+                  : `credit ${rupees(String(-diff))} against the next invoice.`}
+                {!invoice.can_carry_forward && ' (subscription has ended — no next invoice)'}
+              </span>
+            </label>
+          </div>
+        )}
+
+        <ErrorNote message={error} />
+        <div className="flex justify-end gap-3">
+          <Button type="button" onClick={onClose}>Cancel</Button>
+          <Button intent="accent" type="submit" disabled={save.isPending || !Number.isFinite(paid)}>
+            {mismatch ? 'Record payment' : 'Mark paid'}
           </Button>
         </div>
       </form>

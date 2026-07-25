@@ -185,13 +185,17 @@ async def test_extending_a_paid_period_shifts_the_next_one(client, headers_a):
     await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
     inv = (await _invoices(client, headers_a))[-1]
     await client.patch(f"/api/invoices/{inv['id']}", json={"status": "paid"}, headers=headers_a)
+    # Close it early, relative to the period so the test doesn't rot as the date advances.
+    early = date.fromisoformat(inv["period_start"]) + timedelta(days=14)
     await client.patch(
-        f"/api/invoices/{inv['id']}", json={"period_end": "2026-07-25"}, headers=headers_a
+        f"/api/invoices/{inv['id']}", json={"period_end": str(early)}, headers=headers_a
     )
 
     await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
-    periods = [(i["period_start"], i["period_end"]) for i in await _invoices(client, headers_a)]
-    assert periods[-1] == (inv["period_start"], "2026-07-25")
+    after = await _invoices(client, headers_a)
+    extended = next(i for i in after if i["id"] == inv["id"])
+    assert extended["period_end"] == str(early)  # the shift worked off a paid invoice
+    assert any(i["period_start"] == str(early + timedelta(days=1)) for i in after)
 
 
 async def test_period_cannot_end_before_it_starts(client, headers_a):
@@ -405,3 +409,81 @@ async def test_invoice_document_is_org_scoped(client, headers_a, headers_b):
 
     assert (await client.get(f"/api/invoices/{inv['id']}", headers=headers_b)).status_code == 404
     assert (await client.get(f"/api/invoices/{inv['id']}", headers=headers_a)).status_code == 200
+
+
+# ---------------------------------------------------------------- deleting
+
+
+async def _one_invoice(client, headers):
+    return (await _invoices(client, headers))[0]
+
+
+async def test_void_invoice_can_be_deleted(client, headers_a):
+    svc = await create_service(client, headers_a, sku="DEL1", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, svc, rec, date(2026, 6, 1))
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = await _one_invoice(client, headers_a)
+    await client.patch(f"/api/invoices/{inv['id']}", json={"status": "void"}, headers=headers_a)
+
+    res = await client.delete(f"/api/invoices/{inv['id']}", headers=headers_a)
+    assert res.status_code == 204
+    remaining = [i["id"] for i in await _invoices(client, headers_a)]
+    assert inv["id"] not in remaining
+
+
+async def test_due_invoice_cannot_be_deleted(client, headers_a):
+    svc = await create_service(client, headers_a, sku="DEL2", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, svc, rec, date(2026, 6, 1))
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = await _one_invoice(client, headers_a)
+
+    res = await client.delete(f"/api/invoices/{inv['id']}", headers=headers_a)
+    assert res.status_code == 422
+    assert "Void it first" in res.json()["detail"]
+
+
+async def test_paid_invoice_cannot_be_deleted(client, headers_a):
+    svc = await create_service(client, headers_a, sku="DEL3", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, svc, rec, date(2026, 6, 1))
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = await _one_invoice(client, headers_a)
+    await client.patch(f"/api/invoices/{inv['id']}", json={"status": "paid"}, headers=headers_a)
+
+    res = await client.delete(f"/api/invoices/{inv['id']}", headers=headers_a)
+    assert res.status_code == 422
+    assert "paid" in res.json()["detail"]
+
+
+async def test_deleting_a_void_leaves_billing_coverage_intact(client, headers_a):
+    """Delete a void whose period was already re-issued — the live invoice stays and
+    generation stays idempotent."""
+    svc = await create_service(client, headers_a, sku="DEL4", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, svc, rec, date(2026, 6, 1))
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = await _one_invoice(client, headers_a)
+    period = inv["period_start"]
+    # Void it, let the period re-issue, then delete the stale void.
+    await client.patch(f"/api/invoices/{inv['id']}", json={"status": "void"}, headers=headers_a)
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    await client.delete(f"/api/invoices/{inv['id']}", headers=headers_a)
+
+    live = [i for i in await _invoices(client, headers_a) if i["period_start"] == period]
+    assert len(live) == 1 and live[0]["status"] == "due"
+    res = await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    assert res.json()["created"] == 0
+
+
+async def test_delete_invoice_is_org_scoped(client, headers_a, headers_b):
+    svc = await create_service(client, headers_a, sku="DEL5", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, svc, rec, date(2026, 6, 1))
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = await _one_invoice(client, headers_a)
+    await client.patch(f"/api/invoices/{inv['id']}", json={"status": "void"}, headers=headers_a)
+
+    assert (await client.delete(f"/api/invoices/{inv['id']}", headers=headers_b)).status_code == 404
+    assert (await client.delete(f"/api/invoices/{inv['id']}", headers=headers_a)).status_code == 204
