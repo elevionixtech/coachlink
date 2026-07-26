@@ -3,8 +3,8 @@ from fastapi import APIRouter, HTTPException
 
 from app.deps import CurrentUser, SessionDep, ensure_org_not_expired
 from app.models import AppUser, Organisation
-from app.schemas import LoginIn, RefreshIn, TokenPair, UserOut
-from app.security import create_token, decode_token, verify_password
+from app.schemas import LoginIn, PasswordChangeIn, RefreshIn, TokenPair, UserOut
+from app.security import create_token, decode_token, hash_password, verify_password
 
 router = APIRouter(tags=["auth"])
 
@@ -62,3 +62,15 @@ async def refresh(body: RefreshIn, session: SessionDep) -> TokenPair:
 @router.get("/me")
 async def me(user: CurrentUser) -> UserOut:
     return UserOut.model_validate(user)
+
+
+@router.post("/me/password", status_code=204)
+async def change_password(
+    body: PasswordChangeIn, user: CurrentUser, session: SessionDep
+) -> None:
+    """Change the signed-in user's own password. Requires the current password so a
+    walk-up on an unlocked session can't hijack the account."""
+    if not verify_password(body.current_password, user.password_hash):
+        raise HTTPException(422, detail="Current password is incorrect")
+    user.password_hash = hash_password(body.new_password)
+    await session.commit()

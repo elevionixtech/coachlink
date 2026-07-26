@@ -46,6 +46,17 @@ class RefreshIn(BaseModel):
     refresh_token: str
 
 
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(min_length=1)
+    new_password: str = Field(min_length=8)
+
+    @model_validator(mode="after")
+    def _must_differ(self) -> "PasswordChangeIn":
+        if self.current_password == self.new_password:
+            raise ValueError("New password must differ from the current one")
+        return self
+
+
 class OrgSummary(ORMModel):
     id: uuid.UUID
     name: str

@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useAuth } from '../store/auth'
-import { api } from '../api/client'
+import { api, errorMessage } from '../api/client'
 import type { OrgSettingsOut } from '../api/types'
+import { Button, ErrorNote, Field, Modal } from './ui'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -13,7 +15,75 @@ const NAV = [
   { to: '/invoices', label: 'Invoices' },
 ]
 
+function ChangePasswordModal({ onClose }: { onClose: () => void }) {
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [done, setDone] = useState(false)
+
+  const save = useMutation({
+    mutationFn: async () =>
+      api.post('/me/password', { current_password: current, new_password: next }),
+    onSuccess: () => setDone(true),
+    onError: (e) => setError(errorMessage(e)),
+  })
+
+  const mismatch = confirm.length > 0 && next !== confirm
+
+  return (
+    <Modal title="Change password" onClose={onClose}>
+      {done ? (
+        <div className="space-y-4">
+          <p className="text-sm">Your password has been changed.</p>
+          <div className="flex justify-end">
+            <Button intent="accent" onClick={onClose}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (!mismatch) save.mutate() }}
+          className="space-y-4"
+        >
+          <Field
+            label="Current password"
+            type="password"
+            required
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+          <Field
+            label="New password"
+            type="password"
+            required
+            minLength={8}
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+            hint="At least 8 characters"
+          />
+          <Field
+            label="Confirm new password"
+            type="password"
+            required
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          {mismatch && <p className="text-sm text-orange-deep">The new passwords don't match.</p>}
+          <ErrorNote message={error} />
+          <div className="flex justify-end gap-3">
+            <Button type="button" onClick={onClose}>Cancel</Button>
+            <Button intent="accent" type="submit" disabled={save.isPending || mismatch}>
+              Change password
+            </Button>
+          </div>
+        </form>
+      )}
+    </Modal>
+  )
+}
+
 export default function Layout() {
+  const [changingPassword, setChangingPassword] = useState(false)
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const isPlatform = user?.role === 'superadmin'
@@ -84,6 +154,12 @@ export default function Layout() {
               {user?.name} · {user?.role}
             </span>
             <button
+              onClick={() => setChangingPassword(true)}
+              className="rounded-[4px] border border-yellow-pale/30 px-2.5 py-1 text-xs hover:border-yellow-pale/70 cursor-pointer"
+            >
+              Change password
+            </button>
+            <button
               onClick={() => {
                 logout()
                 navigate('/login')
@@ -98,6 +174,7 @@ export default function Layout() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <Outlet />
       </main>
+      {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
     </div>
   )
 }
