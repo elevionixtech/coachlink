@@ -13,7 +13,12 @@ echo "==> building frontend"
 ( cd "$ROOT/web/app" && npm run build )
 
 echo "==> packaging"
-tar -czf "$TMP/coachlink-deploy.tgz" -C "$ROOT" \
+# COPYFILE_DISABLE / --disable-copyfile stop macOS's bsdtar from embedding AppleDouble
+# (._*) sidecar files. Those contain null bytes, and alembic's versions/*.py glob would
+# try to import ._<migration>.py and abort with "source code string cannot contain null
+# bytes". Also exclude them and .DS_Store outright as a belt-and-braces guard.
+COPYFILE_DISABLE=1 tar --disable-copyfile -czf "$TMP/coachlink-deploy.tgz" -C "$ROOT" \
+  --exclude='._*' --exclude='.DS_Store' \
   --exclude='server/.venv' --exclude='**/__pycache__' --exclude='**/.pytest_cache' \
   --exclude='**/.ruff_cache' --exclude='server/.env' \
   server web/app/dist
@@ -26,6 +31,8 @@ gcloud compute ssh "$VM" --zone="$ZONE" --command='
   set -e
   rm -rf /tmp/coachlink-src && mkdir -p /tmp/coachlink-src
   tar xzf /tmp/coachlink-deploy.tgz -C /tmp/coachlink-src 2>/dev/null
+  # Belt-and-braces: drop any macOS sidecar files so alembic never imports a ._*.py.
+  find /tmp/coachlink-src -name "._*" -delete
   sudo cp /opt/coachlink/server/.env /tmp/coachlink.env.bak
   sudo rm -rf /opt/coachlink/server && sudo cp -r /tmp/coachlink-src/server /opt/coachlink/server
   sudo cp /tmp/coachlink.env.bak /opt/coachlink/server/.env
