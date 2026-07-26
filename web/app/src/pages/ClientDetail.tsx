@@ -99,6 +99,7 @@ export default function ClientDetail() {
           <Item label="Date of birth">
             {client.date_of_birth && `${fullDate(client.date_of_birth)} · ${age(client.date_of_birth)} yrs`}
           </Item>
+          <Item label="Joining date">{client.joining_date && fullDate(client.joining_date)}</Item>
           <Item label="Lead source">{client.lead_source}</Item>
           <Item label="Work">{client.work}</Item>
           <Item label="Address">{client.address}</Item>

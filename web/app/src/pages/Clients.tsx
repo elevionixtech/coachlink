@@ -6,7 +6,7 @@ import type { ClientIn, ClientOut, Page } from '../api/types'
 import { ACCOUNT_TYPES, GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
 import {
   Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
-  Spinner, Table, statusTone,
+  Spinner, Table, TextArea, statusTone,
 } from '../components/ui'
 
 export function ClientForm({
@@ -25,6 +25,7 @@ export function ClientForm({
     email: initial?.email ?? '',
     gender: initial?.gender ?? null,
     date_of_birth: initial?.date_of_birth ?? null,
+    joining_date: initial?.joining_date ?? null,
     lead_source: initial?.lead_source ?? null,
     lifecycle_stage: initial?.lifecycle_stage ?? 'Lead',
     account_type: initial?.account_type ?? 'Individual',
@@ -43,7 +44,7 @@ export function ClientForm({
 
   const save = useMutation({
     mutationFn: async () => {
-      const body = { ...form, gender: form.gender || null, lead_source: form.lead_source || null, date_of_birth: form.date_of_birth || null }
+      const body = { ...form, gender: form.gender || null, lead_source: form.lead_source || null, date_of_birth: form.date_of_birth || null, joining_date: form.joining_date || null }
       if (initial) await api.patch(`/clients/${initial.id}`, body)
       else await api.post('/clients', body)
     },
@@ -70,6 +71,7 @@ export function ClientForm({
             {GENDERS.map((g) => <option key={g}>{g}</option>)}
           </SelectField>
           <Field label="Date of birth" type="date" value={form.date_of_birth ?? ''} onChange={(e) => set('date_of_birth', e.target.value || null)} />
+          <Field label="Joining date" type="date" value={form.joining_date ?? ''} onChange={(e) => set('joining_date', e.target.value || null)} hint="When the client joined" />
           <SelectField label="Lead source" value={form.lead_source ?? ''} onChange={(e) => set('lead_source', e.target.value || null)}>
             <option value="">—</option>
             {LEAD_SOURCES.map((s) => <option key={s}>{s}</option>)}
@@ -90,6 +92,7 @@ export function ClientForm({
           </div>
         )}
         <Field label="Address" value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} />
+        <TextArea label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} />
         <div className="flex gap-6">
           {(['do_not_contact', 'do_not_email', 'do_not_call'] as const).map((k) => (
             <label key={k} className="flex items-center gap-2 text-sm">

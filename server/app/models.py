@@ -307,6 +307,7 @@ class Client(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     email: Mapped[str | None] = mapped_column(sa.Text)
     gender: Mapped[Gender | None] = mapped_column(str_enum(Gender, "gender"))
     date_of_birth: Mapped[date | None] = mapped_column(sa.Date)
+    joining_date: Mapped[date | None] = mapped_column(sa.Date)
     lead_source: Mapped[str | None] = mapped_column(sa.Text)
     lifecycle_stage: Mapped[LifecycleStage] = mapped_column(
         str_enum(LifecycleStage, "lifecycle_stage"),

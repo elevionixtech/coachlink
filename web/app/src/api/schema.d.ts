@@ -55,6 +55,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Change the signed-in user's own password. Requires the current password so a
+         *     walk-up on an unlocked session can't hijack the account.
+         */
+        post: operations["change_password_api_me_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/org": {
         parameters: {
             query?: never;
@@ -494,6 +515,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/batches/{batch_id}/eligible-clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Eligible Clients
+         * @description Clients who may still enrol in this batch — those with an active subscription to
+         *     one of its services (§5.5), minus anyone already enrolled. A batch with no listed
+         *     service is open, so every not-yet-enrolled client qualifies.
+         */
+        get: operations["eligible_clients_api_batches__batch_id__eligible_clients_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/enrollments": {
         parameters: {
             query?: never;
@@ -840,6 +883,8 @@ export interface components {
             gender?: components["schemas"]["Gender"] | null;
             /** Date Of Birth */
             date_of_birth?: string | null;
+            /** Joining Date */
+            joining_date?: string | null;
             /** Lead Source */
             lead_source?: string | null;
             /** @default Lead */
@@ -894,6 +939,8 @@ export interface components {
             gender: components["schemas"]["Gender"] | null;
             /** Date Of Birth */
             date_of_birth: string | null;
+            /** Joining Date */
+            joining_date: string | null;
             /** Lead Source */
             lead_source: string | null;
             lifecycle_stage: components["schemas"]["LifecycleStage"];
@@ -944,6 +991,8 @@ export interface components {
             gender?: components["schemas"]["Gender"] | null;
             /** Date Of Birth */
             date_of_birth?: string | null;
+            /** Joining Date */
+            joining_date?: string | null;
             /** Lead Source */
             lead_source?: string | null;
             lifecycle_stage?: components["schemas"]["LifecycleStage"] | null;
@@ -1667,6 +1716,13 @@ export interface components {
             /** Next Cursor */
             next_cursor?: number | null;
         };
+        /** PasswordChangeIn */
+        PasswordChangeIn: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
         /** PlanIn */
         PlanIn: {
             /** Name */
@@ -2116,6 +2172,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserOut"];
+                };
+            };
+        };
+    };
+    change_password_api_me_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChangeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -3643,6 +3730,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnrollmentOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    eligible_clients_api_batches__batch_id__eligible_clients_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClientRef"][];
                 };
             };
             /** @description Validation Error */

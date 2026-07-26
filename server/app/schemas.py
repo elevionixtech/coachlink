@@ -318,6 +318,7 @@ class ClientIn(BaseModel):
     email: str | None = None
     gender: Gender | None = None
     date_of_birth: date | None = None
+    joining_date: date | None = None
     lead_source: str | None = None
     lifecycle_stage: LifecycleStage = LifecycleStage.lead
     do_not_contact: bool = False
@@ -340,6 +341,7 @@ class ClientPatch(BaseModel):
     email: str | None = None
     gender: Gender | None = None
     date_of_birth: date | None = None
+    joining_date: date | None = None
     lead_source: str | None = None
     lifecycle_stage: LifecycleStage | None = None
     do_not_contact: bool | None = None
@@ -363,6 +365,7 @@ class ClientOut(ORMModel):
     email: str | None
     gender: Gender | None
     date_of_birth: date | None
+    joining_date: date | None
     lead_source: str | None
     lifecycle_stage: LifecycleStage
     do_not_contact: bool
