@@ -23,10 +23,10 @@ function fdate(iso: string | null | undefined): string {
 const C = { text: '#3a2c1a', mid: '#7a5a32', muted: '#948468', hair: '#e7dcc4', deep: '#33200d' }
 
 const s = StyleSheet.create({
-  page: { paddingVertical: 44, paddingHorizontal: 48, fontFamily: 'Helvetica', fontSize: 10, color: C.text, lineHeight: 1.5 },
+  page: { paddingVertical: 44, paddingHorizontal: 48, fontFamily: 'Helvetica', fontSize: 10, color: C.text },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  orgName: { fontFamily: 'Helvetica-Bold', fontSize: 18 },
-  small: { fontSize: 9, color: C.mid },
+  orgName: { fontFamily: 'Helvetica-Bold', fontSize: 18, marginBottom: 6, lineHeight: 1 },
+  small: { fontSize: 9, color: C.mid, lineHeight: 1.35, marginBottom: 1 },
   mono: { fontFamily: 'Courier' },
   label: { fontSize: 8, letterSpacing: 1, color: C.muted, textTransform: 'uppercase' },
   rightBlock: { alignItems: 'flex-end' },
@@ -35,7 +35,7 @@ const s = StyleSheet.create({
   rule: { borderBottomWidth: 1, borderBottomColor: C.hair, marginVertical: 18 },
   cols: { flexDirection: 'row', justifyContent: 'space-between' },
   colHalf: { width: '48%' },
-  billName: { fontFamily: 'Helvetica-Bold', fontSize: 11, marginTop: 3 },
+  billName: { fontFamily: 'Helvetica-Bold', fontSize: 11, marginTop: 3, marginBottom: 2, lineHeight: 1 },
   tableHead: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: C.hair, paddingBottom: 4, marginTop: 28 },
   thDesc: { flex: 1 }, thAmt: { width: 110, textAlign: 'right' },
   lineRow: { flexDirection: 'row', paddingVertical: 14 },
