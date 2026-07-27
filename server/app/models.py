@@ -534,6 +534,9 @@ class Invoice(TimestampMixin, Base):
     )
     issue_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    # The rate before any per-subscription discount, stored so the invoice can show the
+    # discount even if the service rate later changes. Null for ad-hoc invoices.
+    subtotal: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
     # Free-text line for an ad-hoc invoice (a subscription invoice uses the service name).
     description: Mapped[str | None] = mapped_column(sa.Text)
     # What was actually received, set when the invoice is marked paid. May differ from

@@ -62,6 +62,9 @@ function InvoiceDoc({ inv, qr }: { inv: InvoiceDocumentOut; qr: string | null })
   const p = inv.payment
   const line = inv.service_name || inv.description || 'Invoice'
   const paidLess = inv.paid_amount != null && Number(inv.paid_amount) !== Number(inv.amount)
+  const hasDiscount = inv.subtotal != null && Number(inv.subtotal) > Number(inv.amount)
+  const discountAmt = hasDiscount ? Number(inv.subtotal) - Number(inv.amount) : 0
+  const discountPct = hasDiscount ? Math.round((discountAmt / Number(inv.subtotal)) * 100) : 0
   return (
     <Document title={`Invoice ${inv.number}`}>
       <Page size="A4" style={s.page}>
@@ -120,8 +123,26 @@ function InvoiceDoc({ inv, qr }: { inv: InvoiceDocumentOut; qr: string | null })
               <Text key={it} style={{ marginTop: 2 }}>{it}</Text>
             ))}
           </View>
-          <Text style={[s.thAmt, s.mono]}>{money(inv.amount)}</Text>
+          <Text style={[s.thAmt, s.mono]}>{money(hasDiscount ? inv.subtotal : inv.amount)}</Text>
         </View>
+
+        {/* discount */}
+        {hasDiscount && (
+          <View style={{ marginTop: 2 }}>
+            <View style={s.row}>
+              <Text style={{ color: C.muted }}>Subtotal</Text>
+              <Text style={s.mono}>{money(inv.subtotal)}</Text>
+            </View>
+            <View style={[s.row, { marginTop: 2 }]}>
+              <Text style={{ color: C.muted }}>
+                {inv.pricing_option_name
+                  ? `${inv.pricing_option_name} (${discountPct}% off)`
+                  : `Discount (${discountPct}%)`}
+              </Text>
+              <Text style={[s.mono, { color: C.muted }]}>- {money(discountAmt)}</Text>
+            </View>
+          </View>
+        )}
 
         {/* total */}
         <View style={s.totalRow}>

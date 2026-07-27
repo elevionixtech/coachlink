@@ -215,6 +215,7 @@ async def generate_missing(
                     period_end=period_end,
                     issue_date=issue_date,
                     amount=amount,
+                    subtotal=sub.service.rate,
                 )
             )
             org.next_invoice_seq += 1

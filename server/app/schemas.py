@@ -614,6 +614,7 @@ class InvoiceOut(ORMModel):
     period_end_adjusted: bool = False
     issue_date: date
     amount: Decimal
+    subtotal: Decimal | None = None
     paid_amount: Decimal | None = None
     difference_carried: bool = False
     status: InvoiceStatus

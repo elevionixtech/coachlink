@@ -705,6 +705,8 @@ export interface components {
             bill_to_phone?: string | null;
             /** Bill To Address */
             bill_to_address?: string | null;
+            /** Bill To Gstin */
+            bill_to_gstin?: string | null;
             /** Description */
             description: string;
             /** Amount */
@@ -1327,6 +1329,8 @@ export interface components {
             issue_date: string;
             /** Amount */
             amount: string;
+            /** Subtotal */
+            subtotal?: string | null;
             /** Paid Amount */
             paid_amount?: string | null;
             /**
@@ -1419,6 +1423,8 @@ export interface components {
             issue_date: string;
             /** Amount */
             amount: string;
+            /** Subtotal */
+            subtotal?: string | null;
             /** Paid Amount */
             paid_amount?: string | null;
             /**

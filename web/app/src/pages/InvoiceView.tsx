@@ -105,6 +105,10 @@ export default function InvoiceView() {
         ? 'Paid'
         : 'Void'
 
+  const hasDiscount = inv.subtotal != null && Number(inv.subtotal) > Number(inv.amount)
+  const discountAmt = hasDiscount ? Number(inv.subtotal) - Number(inv.amount) : 0
+  const discountPct = hasDiscount ? Math.round((discountAmt / Number(inv.subtotal)) * 100) : 0
+
   return (
     <div>
       <div className="print-hide mb-4 flex items-center justify-between">
@@ -205,10 +209,29 @@ export default function InvoiceView() {
                   </ul>
                 )}
               </td>
-              <td className="py-4 text-right font-mono">{rupees(inv.amount)}</td>
+              <td className="py-4 text-right font-mono">
+                {rupees(hasDiscount ? inv.subtotal : inv.amount)}
+              </td>
             </tr>
           </tbody>
         </table>
+
+        {hasDiscount && (
+          <div className="print-keep mt-2 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted">Subtotal</span>
+              <span className="font-mono">{rupees(inv.subtotal)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted">
+              <span>
+                {inv.pricing_option_name
+                  ? `${inv.pricing_option_name} (${discountPct}% off)`
+                  : `Discount (${discountPct}%)`}
+              </span>
+              <span className="font-mono">− {rupees(String(discountAmt))}</span>
+            </div>
+          </div>
+        )}
 
         <div className="print-keep mt-2 border-t-2 border-brown-deep pt-3 flex justify-between">
           <span className="font-display font-bold">
