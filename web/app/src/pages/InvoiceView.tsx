@@ -1,9 +1,62 @@
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
+import QRCode from 'qrcode'
 import { api } from '../api/client'
 import type { InvoiceDocumentOut } from '../api/types'
 import { fullDate, rupees } from '../lib/format'
 import { Badge, Button, ErrorNote, Panel, Spinner } from '../components/ui'
+
+function PaymentSection({ inv }: { inv: InvoiceDocumentOut }) {
+  const p = inv.payment
+  const hasBank = !!p.bank_account_number
+  const hasUpi = !!p.upi_id
+  if (!hasBank && !hasUpi) return null
+
+  // UPI deep link with the amount pre-filled — a client scans and confirms.
+  const upiLink = hasUpi
+    ? `upi://pay?pa=${encodeURIComponent(p.upi_id!)}&pn=${encodeURIComponent(inv.issued_by.name)}` +
+      `&am=${inv.amount}&cu=${inv.currency}&tn=${encodeURIComponent('Invoice ' + inv.number)}`
+    : ''
+
+  const [qr, setQr] = useState<string>('')
+  useEffect(() => {
+    if (p.show_qr && upiLink) {
+      QRCode.toDataURL(upiLink, { width: 220, margin: 1 }).then(setQr).catch(() => setQr(''))
+    } else {
+      setQr('')
+    }
+  }, [upiLink, p.show_qr])
+
+  return (
+    <div className="print-keep mt-8 rounded-md border border-hairline p-4">
+      <div className="eyebrow mb-3">Pay online — {rupees(inv.amount)} due</div>
+      <div className="grid gap-6 sm:grid-cols-3">
+        {hasBank && (
+          <div className="text-sm">
+            <div className="font-display font-bold mb-1">Bank transfer</div>
+            {p.bank_account_name && <div>{p.bank_account_name}</div>}
+            <div className="font-mono text-xs">A/C {p.bank_account_number}</div>
+            {p.bank_ifsc && <div className="font-mono text-xs">IFSC {p.bank_ifsc}</div>}
+            {p.bank_name && <div>{p.bank_name}</div>}
+          </div>
+        )}
+        {hasUpi && (
+          <div className="text-sm">
+            <div className="font-display font-bold mb-1">UPI</div>
+            <div className="font-mono text-xs break-all">{p.upi_id}</div>
+          </div>
+        )}
+        {qr && (
+          <div className="text-sm">
+            <div className="font-display font-bold mb-1">Scan to pay</div>
+            <img src={qr} alt="UPI payment QR" className="h-32 w-32" />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function Party({ label, party }: { label: string; party: InvoiceDocumentOut['bill_to'] }) {
   return (
@@ -165,6 +218,9 @@ export default function InvoiceView() {
             )}
           </div>
         )}
+
+        {/* Payment options only matter while the invoice is unpaid. */}
+        {(inv.status === 'due') && <PaymentSection inv={inv} />}
 
         <p className="mt-8 text-xs text-muted">
           {inv.currency} · Invoice {inv.number} for the period{' '}

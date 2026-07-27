@@ -1337,6 +1337,12 @@ export interface components {
             issued_by: components["schemas"]["InvoiceParty"];
             bill_to: components["schemas"]["InvoiceParty"];
             /**
+             * @default {
+             *       "show_qr": true
+             *     }
+             */
+            payment: components["schemas"]["PaymentInfo"];
+            /**
              * Includes
              * @default []
              */
@@ -1627,6 +1633,21 @@ export interface components {
             phone?: string | null;
             /** Gstin */
             gstin?: string | null;
+            /** Upi Id */
+            upi_id?: string | null;
+            /** Bank Account Name */
+            bank_account_name?: string | null;
+            /** Bank Account Number */
+            bank_account_number?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
+            /** Bank Name */
+            bank_name?: string | null;
+            /**
+             * Show Payment Qr
+             * @default true
+             */
+            show_payment_qr: boolean;
             /** Settings */
             settings: {
                 [key: string]: unknown;
@@ -1657,6 +1678,21 @@ export interface components {
             phone?: string | null;
             /** Gstin */
             gstin?: string | null;
+            /** Upi Id */
+            upi_id?: string | null;
+            /** Bank Account Name */
+            bank_account_name?: string | null;
+            /** Bank Account Number */
+            bank_account_number?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
+            /** Bank Name */
+            bank_name?: string | null;
+            /**
+             * Show Payment Qr
+             * @default true
+             */
+            show_payment_qr: boolean;
             /** Settings */
             settings?: {
                 [key: string]: unknown;
@@ -1722,6 +1758,27 @@ export interface components {
             current_password: string;
             /** New Password */
             new_password: string;
+        };
+        /**
+         * PaymentInfo
+         * @description How a client can pay the invoice online (§3.9).
+         */
+        PaymentInfo: {
+            /** Upi Id */
+            upi_id?: string | null;
+            /** Bank Account Name */
+            bank_account_name?: string | null;
+            /** Bank Account Number */
+            bank_account_number?: string | null;
+            /** Bank Ifsc */
+            bank_ifsc?: string | null;
+            /** Bank Name */
+            bank_name?: string | null;
+            /**
+             * Show Qr
+             * @default true
+             */
+            show_qr: boolean;
         };
         /** PlanIn */
         PlanIn: {

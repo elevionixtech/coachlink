@@ -12,6 +12,12 @@ const BLANK = {
   billing_email: '',
   phone: '',
   gstin: '',
+  upi_id: '',
+  bank_account_name: '',
+  bank_account_number: '',
+  bank_ifsc: '',
+  bank_name: '',
+  show_payment_qr: true,
   invoice_prefix: '',
   invoice_grace_days: '7',
   capacity_policy: 'warn',
@@ -22,7 +28,7 @@ export default function Organisation() {
   const [form, setForm] = useState(BLANK)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
-  const set = (k: keyof typeof form, v: string) => {
+  const set = (k: keyof typeof form, v: string | boolean) => {
     setForm((f) => ({ ...f, [k]: v }))
     setSaved(false)
   }
@@ -41,6 +47,12 @@ export default function Organisation() {
       billing_email: org.billing_email ?? '',
       phone: org.phone ?? '',
       gstin: org.gstin ?? '',
+      upi_id: org.upi_id ?? '',
+      bank_account_name: org.bank_account_name ?? '',
+      bank_account_number: org.bank_account_number ?? '',
+      bank_ifsc: org.bank_ifsc ?? '',
+      bank_name: org.bank_name ?? '',
+      show_payment_qr: org.show_payment_qr,
       invoice_prefix: org.invoice_prefix,
       invoice_grace_days: String(org.invoice_grace_days),
       capacity_policy: org.capacity_policy,
@@ -56,6 +68,12 @@ export default function Organisation() {
         billing_email: form.billing_email || null,
         phone: form.phone || null,
         gstin: form.gstin || null,
+        upi_id: form.upi_id || null,
+        bank_account_name: form.bank_account_name || null,
+        bank_account_number: form.bank_account_number || null,
+        bank_ifsc: form.bank_ifsc || null,
+        bank_name: form.bank_name || null,
+        show_payment_qr: form.show_payment_qr,
         invoice_grace_days: Number(form.invoice_grace_days),
       }),
     onSuccess: () => {
@@ -92,6 +110,43 @@ export default function Organisation() {
             className="[&>input]:font-mono"
             hint="15-character GST identification number"
           />
+
+          <div className="border-t border-hairline pt-4">
+            <h4 className="font-display font-bold text-sm">Online payment</h4>
+            <p className="mt-0.5 mb-3 text-xs text-brown-mid">
+              Shown on every invoice so clients can pay by UPI or bank transfer. The UPI id
+              also drives the scannable QR code.
+            </p>
+            <div className="space-y-4">
+              <Field
+                label="UPI ID"
+                value={form.upi_id}
+                onChange={(e) => set('upi_id', e.target.value)}
+                className="[&>input]:font-mono"
+                placeholder="studio@okhdfcbank"
+              />
+              <Field label="Account holder name" value={form.bank_account_name} onChange={(e) => set('bank_account_name', e.target.value)} />
+              <Field
+                label="Account number"
+                value={form.bank_account_number}
+                onChange={(e) => set('bank_account_number', e.target.value)}
+                className="[&>input]:font-mono"
+              />
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="IFSC" value={form.bank_ifsc} onChange={(e) => set('bank_ifsc', e.target.value)} className="[&>input]:font-mono" />
+                <Field label="Bank name" value={form.bank_name} onChange={(e) => set('bank_name', e.target.value)} />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="accent-orange"
+                  checked={form.show_payment_qr}
+                  onChange={(e) => set('show_payment_qr', e.target.checked)}
+                />
+                Show a scannable UPI QR code on invoices
+              </label>
+            </div>
+          </div>
         </Panel>
 
         <Panel className="h-fit p-5 space-y-4">

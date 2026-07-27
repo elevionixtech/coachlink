@@ -160,6 +160,14 @@ class Organisation(TimestampMixin, Base):
     billing_email: Mapped[str | None] = mapped_column(sa.Text)
     phone: Mapped[str | None] = mapped_column(sa.Text)
     gstin: Mapped[str | None] = mapped_column(sa.Text)
+    # Online-payment details printed on invoices (§3.9) so a client can pay by UPI or
+    # bank transfer. show_payment_qr toggles the scannable UPI QR on the invoice.
+    upi_id: Mapped[str | None] = mapped_column(sa.Text)
+    bank_account_name: Mapped[str | None] = mapped_column(sa.Text)
+    bank_account_number: Mapped[str | None] = mapped_column(sa.Text)
+    bank_ifsc: Mapped[str | None] = mapped_column(sa.Text)
+    bank_name: Mapped[str | None] = mapped_column(sa.Text)
+    show_payment_qr: Mapped[bool] = mapped_column(sa.Boolean, default=True, nullable=False)
     invoice_grace_days: Mapped[int] = mapped_column(sa.Integer, default=7, nullable=False)
     capacity_policy: Mapped[CapacityPolicy] = mapped_column(
         str_enum(CapacityPolicy, "capacity_policy"), default=CapacityPolicy.warn, nullable=False

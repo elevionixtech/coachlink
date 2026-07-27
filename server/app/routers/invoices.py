@@ -17,6 +17,7 @@ from app.schemas import (
     InvoicePage,
     InvoiceParty,
     InvoicePatch,
+    PaymentInfo,
 )
 
 router = APIRouter(prefix="/invoices", tags=["invoices"])
@@ -250,6 +251,14 @@ async def get_invoice_document(
             email=client.email,
             phone=client.phone,
             gstin=client.gstin,
+        ),
+        payment=PaymentInfo(
+            upi_id=ctx.org.upi_id,
+            bank_account_name=ctx.org.bank_account_name,
+            bank_account_number=ctx.org.bank_account_number,
+            bank_ifsc=ctx.org.bank_ifsc,
+            bank_name=ctx.org.bank_name,
+            show_qr=ctx.org.show_payment_qr,
         ),
         includes=[
             f"{d.quantity} {d.unit} — {d.name}"

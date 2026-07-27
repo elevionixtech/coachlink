@@ -94,6 +94,12 @@ class OrgSettingsOut(ORMModel):
     billing_email: str | None = None
     phone: str | None = None
     gstin: str | None = None
+    upi_id: str | None = None
+    bank_account_name: str | None = None
+    bank_account_number: str | None = None
+    bank_ifsc: str | None = None
+    bank_name: str | None = None
+    show_payment_qr: bool = True
     settings: dict
     subscription_starts_on: date | None
     subscription_ends_on: date | None
@@ -110,6 +116,12 @@ class OrgSettingsPatch(BaseModel):
     billing_email: str | None = None
     phone: str | None = None
     gstin: str | None = None
+    upi_id: str | None = None
+    bank_account_name: str | None = None
+    bank_account_number: str | None = None
+    bank_ifsc: str | None = None
+    bank_name: str | None = None
+    show_payment_qr: bool = True
     settings: dict | None = None
 
 
@@ -624,6 +636,20 @@ class InvoiceParty(BaseModel):
     gstin: str | None = None
 
 
+class PaymentInfo(BaseModel):
+    """How a client can pay the invoice online (§3.9)."""
+
+    upi_id: str | None = None
+    bank_account_name: str | None = None
+    bank_account_number: str | None = None
+    bank_ifsc: str | None = None
+    bank_name: str | None = None
+    show_qr: bool = True
+
+    def has_any(self) -> bool:
+        return bool(self.upi_id or self.bank_account_number)
+
+
 class InvoiceDocumentOut(InvoiceOut):
     """Everything a printable invoice needs, in one request."""
 
@@ -633,6 +659,7 @@ class InvoiceDocumentOut(InvoiceOut):
     pricing_option_name: str | None = None
     issued_by: InvoiceParty
     bill_to: InvoiceParty
+    payment: PaymentInfo = PaymentInfo()
     # Deliverables of the service, e.g. "12 classes — Hatha yoga classes".
     includes: list[str] = []
 
