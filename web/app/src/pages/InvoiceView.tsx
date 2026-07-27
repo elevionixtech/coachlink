@@ -78,6 +78,7 @@ function Party({ label, party }: { label: string; party: InvoiceDocumentOut['bil
 
 export default function InvoiceView() {
   const { id } = useParams<{ id: string }>()
+  const [downloading, setDownloading] = useState(false)
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ['invoice', id],
@@ -110,10 +111,22 @@ export default function InvoiceView() {
         <Link to="/invoices" className="text-sm text-orange-deep hover:text-orange">
           ← Back to invoices
         </Link>
-        {/* The browser's print dialog is the PDF writer — "Save as PDF" in the
-            destination list. No server-side renderer, so nothing to install. */}
-        <Button intent="accent" onClick={() => window.print()}>
-          Download PDF
+        {/* A real generated PDF, not a print of the page. The renderer is lazy-loaded
+            on click so it stays out of the main bundle. */}
+        <Button
+          intent="accent"
+          disabled={downloading}
+          onClick={async () => {
+            setDownloading(true)
+            try {
+              const { downloadInvoicePdf } = await import('../lib/invoicePdf')
+              await downloadInvoicePdf(inv)
+            } finally {
+              setDownloading(false)
+            }
+          }}
+        >
+          {downloading ? 'Preparing…' : 'Download PDF'}
         </Button>
       </div>
 
@@ -149,15 +162,17 @@ export default function InvoiceView() {
               <span className="eyebrow">Issued</span>
               <div className="font-mono text-sm">{fullDate(inv.issue_date)}</div>
             </div>
-            <div>
-              <span className="eyebrow">Period</span>
-              <div className="font-mono text-sm">
-                {fullDate(inv.period_start)} – {fullDate(inv.period_end)}
+            {inv.subscription_id && (
+              <div>
+                <span className="eyebrow">Period</span>
+                <div className="font-mono text-sm">
+                  {fullDate(inv.period_start)} – {fullDate(inv.period_end)}
+                </div>
+                {inv.period_end_adjusted && (
+                  <div className="text-[10px] uppercase tracking-wide text-muted">adjusted</div>
+                )}
               </div>
-              {inv.period_end_adjusted && (
-                <div className="text-[10px] uppercase tracking-wide text-muted">adjusted</div>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
@@ -171,7 +186,7 @@ export default function InvoiceView() {
           <tbody>
             <tr className="print-keep align-top">
               <td className="py-4">
-                <div className="font-display font-bold">{inv.service_name}</div>
+                <div className="font-display font-bold whitespace-pre-line">{inv.service_name ?? inv.description}</div>
                 {/* No period here — the dates are already stated under Period, and
                     repeating "Jun 2026" beside them reads as a second, vaguer date.
                     An empty description is stored as "" on some rows, so a falsy
@@ -223,8 +238,9 @@ export default function InvoiceView() {
         {(inv.status === 'due') && <PaymentSection inv={inv} />}
 
         <p className="mt-8 text-xs text-muted">
-          {inv.currency} · Invoice {inv.number} for the period{' '}
-          {fullDate(inv.period_start)} to {fullDate(inv.period_end)}.
+          {inv.subscription_id
+            ? `${inv.currency} · Invoice ${inv.number} for the period ${fullDate(inv.period_start)} to ${fullDate(inv.period_end)}.`
+            : `${inv.currency} · Invoice ${inv.number}.`}
         </p>
       </Panel>
     </div>

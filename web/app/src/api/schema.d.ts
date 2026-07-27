@@ -582,7 +582,12 @@ export interface paths {
         /** List Invoices */
         get: operations["list_invoices_api_invoices_get"];
         put?: never;
-        post?: never;
+        /**
+         * Create Invoice
+         * @description Raise a one-off invoice against a client — amount and line entered by hand, with
+         *     no subscription behind it (§3.8). Numbered from the org's invoice counter.
+         */
+        post: operations["create_invoice_api_invoices_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -683,6 +688,33 @@ export interface components {
          * @enum {string}
          */
         AccountType: "Individual" | "Corporate" | "Family";
+        /**
+         * AdHocInvoiceIn
+         * @description A one-off invoice (§3.8), not from a subscription — the amount and line are
+         *     entered by hand. Raised either against an existing client (client_id) or a
+         *     non-client whose name is typed in (bill_to_name); exactly one of the two.
+         */
+        AdHocInvoiceIn: {
+            /** Client Id */
+            client_id?: string | null;
+            /** Bill To Name */
+            bill_to_name?: string | null;
+            /** Bill To Email */
+            bill_to_email?: string | null;
+            /** Bill To Phone */
+            bill_to_phone?: string | null;
+            /** Bill To Address */
+            bill_to_address?: string | null;
+            /** Description */
+            description: string;
+            /** Amount */
+            amount: number | string;
+            /**
+             * Issue Date
+             * Format: date
+             */
+            issue_date: string;
+        };
         /** AdminOrgIn */
         AdminOrgIn: {
             /** Name */
@@ -1261,20 +1293,16 @@ export interface components {
             id: string;
             /** Number */
             number: string;
-            /**
-             * Client Id
-             * Format: uuid
-             */
-            client_id: string;
-            /**
-             * Subscription Id
-             * Format: uuid
-             */
-            subscription_id: string;
+            /** Client Id */
+            client_id?: string | null;
+            /** Subscription Id */
+            subscription_id?: string | null;
             /** Client Name */
             client_name?: string | null;
             /** Service Name */
             service_name?: string | null;
+            /** Description */
+            description?: string | null;
             /** Period Label */
             period_label: string;
             /**
@@ -1357,20 +1385,16 @@ export interface components {
             id: string;
             /** Number */
             number: string;
-            /**
-             * Client Id
-             * Format: uuid
-             */
-            client_id: string;
-            /**
-             * Subscription Id
-             * Format: uuid
-             */
-            subscription_id: string;
+            /** Client Id */
+            client_id?: string | null;
+            /** Subscription Id */
+            subscription_id?: string | null;
             /** Client Name */
             client_name?: string | null;
             /** Service Name */
             service_name?: string | null;
+            /** Description */
+            description?: string | null;
             /** Period Label */
             period_label: string;
             /**
@@ -3953,6 +3977,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoicePage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_invoice_api_invoices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdHocInvoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
                 };
             };
             /** @description Validation Error */

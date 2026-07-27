@@ -603,10 +603,11 @@ class SubscriptionOut(ORMModel):
 class InvoiceOut(ORMModel):
     id: uuid.UUID
     number: str
-    client_id: uuid.UUID
-    subscription_id: uuid.UUID
+    client_id: uuid.UUID | None = None
+    subscription_id: uuid.UUID | None = None
     client_name: str | None = None
     service_name: str | None = None
+    description: str | None = None
     period_label: str
     period_start: date
     period_end: date
@@ -691,6 +692,28 @@ class InvoicePatch(BaseModel):
     def _something_to_change(self) -> "InvoicePatch":
         if self.status is None and self.period_end is None:
             raise ValueError("Provide status or period_end")
+        return self
+
+
+class AdHocInvoiceIn(BaseModel):
+    """A one-off invoice (§3.8), not from a subscription — the amount and line are
+    entered by hand. Raised either against an existing client (client_id) or a
+    non-client whose name is typed in (bill_to_name); exactly one of the two."""
+
+    client_id: uuid.UUID | None = None
+    bill_to_name: str | None = Field(default=None, min_length=1)
+    bill_to_email: str | None = None
+    bill_to_phone: str | None = None
+    bill_to_address: str | None = None
+    bill_to_gstin: str | None = None
+    description: str = Field(min_length=1)
+    amount: Decimal = Field(gt=0)
+    issue_date: date
+
+    @model_validator(mode="after")
+    def _one_recipient(self) -> "AdHocInvoiceIn":
+        if bool(self.client_id) == bool(self.bill_to_name):
+            raise ValueError("Provide either a client or a bill-to name, not both")
         return self
 
 

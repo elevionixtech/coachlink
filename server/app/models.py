@@ -502,11 +502,27 @@ class Invoice(TimestampMixin, Base):
     )
 
     number: Mapped[str] = mapped_column(sa.Text, nullable=False, index=True)
-    client_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("client.id", ondelete="RESTRICT"), nullable=False, index=True
+    # Invoices carry org_id directly so a client-less ad-hoc invoice can still be
+    # tenant-scoped; generated invoices copy it from the client's org.
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("organisation.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    subscription_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("subscription.id", ondelete="RESTRICT"), nullable=False, index=True
+    # Nullable: an ad-hoc invoice may be raised against a non-client (a name entered by
+    # hand) rather than an existing client record.
+    client_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("client.id", ondelete="RESTRICT"), index=True
+    )
+    # Recipient details when there is no client behind the invoice.
+    bill_to_name: Mapped[str | None] = mapped_column(sa.Text)
+    bill_to_email: Mapped[str | None] = mapped_column(sa.Text)
+    bill_to_phone: Mapped[str | None] = mapped_column(sa.Text)
+    bill_to_address: Mapped[str | None] = mapped_column(sa.Text)
+    bill_to_gstin: Mapped[str | None] = mapped_column(sa.Text)
+    # Nullable: an ad-hoc/one-off invoice is billed directly to a client with no
+    # subscription behind it. Automatic generation only ever touches invoices that have
+    # one, and NULLs are distinct under the partial unique index, so the two coexist.
+    subscription_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("subscription.id", ondelete="RESTRICT"), index=True
     )
     period_label: Mapped[str] = mapped_column(sa.Text, nullable=False)
     period_start: Mapped[date] = mapped_column(sa.Date, nullable=False)
@@ -518,6 +534,8 @@ class Invoice(TimestampMixin, Base):
     )
     issue_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     amount: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False)
+    # Free-text line for an ad-hoc invoice (a subscription invoice uses the service name).
+    description: Mapped[str | None] = mapped_column(sa.Text)
     # What was actually received, set when the invoice is marked paid. May differ from
     # amount when a payment is settled short/over or the difference is carried forward.
     paid_amount: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))

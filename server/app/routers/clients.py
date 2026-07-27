@@ -52,10 +52,10 @@ async def _resolve_family_link(
 
 
 def _apply_account_type_rules(data: dict) -> dict:
-    """Company fields exist only on Corporate; the family link only on Family (§5.3)."""
+    """Company name/contact exist only on Corporate and the family link only on Family;
+    GSTIN is a general client field (§5.3)."""
     if data.get("account_type") != AccountType.corporate:
         data["company_name"] = None
-        data["gstin"] = None
         data["company_contact"] = None
     if data.get("account_type") != AccountType.family:
         data["family_link_id"] = None
@@ -137,7 +137,6 @@ async def update_client(
     effective_type = data.get("account_type", client.account_type)
     if effective_type != AccountType.corporate:
         data["company_name"] = None
-        data["gstin"] = None
         data["company_contact"] = None
     if effective_type != AccountType.family and "account_type" in data:
         data["family_link_id"] = None

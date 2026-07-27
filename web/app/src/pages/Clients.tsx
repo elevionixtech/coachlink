@@ -83,11 +83,11 @@ export function ClientForm({
             {ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}
           </SelectField>
           <Field label="Work" value={form.work ?? ''} onChange={(e) => set('work', e.target.value)} />
+          <Field label="GSTIN" value={form.gstin ?? ''} onChange={(e) => set('gstin', e.target.value)} className="[&>input]:font-mono" hint="GST number, if the client has one" />
         </div>
         {form.account_type === 'Corporate' && (
-          <div className="grid grid-cols-3 gap-4 rounded-lg border border-gold-soft bg-white/50 p-3">
+          <div className="grid grid-cols-2 gap-4 rounded-lg border border-gold-soft bg-white/50 p-3">
             <Field label="Company name" value={form.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} />
-            <Field label="GSTIN" value={form.gstin ?? ''} onChange={(e) => set('gstin', e.target.value)} className="[&>input]:font-mono" />
             <Field label="Company contact" value={form.company_contact ?? ''} onChange={(e) => set('company_contact', e.target.value)} />
           </div>
         )}

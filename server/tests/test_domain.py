@@ -24,7 +24,9 @@ async def test_corporate_fields_cleared_on_switch_away(client, headers_a):
         f"/api/clients/{rec['id']}", json={"account_type": "Individual"}, headers=headers_a
     )
     body = res.json()
-    assert body["company_name"] is None and body["gstin"] is None
+    # Company name/contact are corporate-only and cleared; GSTIN is a general field kept.
+    assert body["company_name"] is None and body["company_contact"] is None
+    assert body["gstin"] == "27AAA"
 
 
 async def test_family_link_and_reverse_link(client, headers_a):

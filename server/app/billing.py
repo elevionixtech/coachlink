@@ -207,6 +207,7 @@ async def generate_missing(
                     number=format_invoice_number(
                         org.invoice_prefix, issue_date.year, org.next_invoice_seq
                     ),
+                    org_id=org.id,
                     client_id=sub.client_id,
                     subscription_id=sub.id,
                     period_label=label,

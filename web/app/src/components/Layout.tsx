@@ -96,7 +96,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen">
-      <header className="bg-brown-deep text-yellow-pale">
+      <header className="print-hide bg-brown-deep text-yellow-pale">
         <div className="mx-auto flex max-w-6xl items-center gap-8 px-6 py-3">
           <div>
             <div className="font-display text-lg font-extrabold italic tracking-tight leading-none">

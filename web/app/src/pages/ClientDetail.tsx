@@ -102,6 +102,7 @@ export default function ClientDetail() {
           <Item label="Joining date">{client.joining_date && fullDate(client.joining_date)}</Item>
           <Item label="Lead source">{client.lead_source}</Item>
           <Item label="Work">{client.work}</Item>
+          <Item label="GSTIN">{client.gstin && <span className="font-mono">{client.gstin}</span>}</Item>
           <Item label="Address">{client.address}</Item>
           <Item label="Description">{client.description}</Item>
           <Item label="Created">{fullDate(client.created_at.slice(0, 10))}</Item>
@@ -112,9 +113,8 @@ export default function ClientDetail() {
         <Panel className="p-5 space-y-5">
           <Item label="Account type">{client.account_type}</Item>
           {client.account_type === 'Corporate' && (
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <Item label="Company">{client.company_name}</Item>
-              <Item label="GSTIN">{client.gstin && <span className="font-mono">{client.gstin}</span>}</Item>
               <Item label="Company contact">{client.company_contact}</Item>
             </div>
           )}
@@ -297,12 +297,18 @@ export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; 
             <td className="px-4 py-2.5">
               <Link to={`/clients/${inv.client_id}`} className="text-orange-deep hover:text-orange">{inv.client_name}</Link>
             </td>
-            <td className="px-4 py-2.5 text-xs">{inv.service_name}</td>
+            <td className="px-4 py-2.5 text-xs">{inv.service_name ?? inv.description}</td>
             <td className="px-4 py-2.5 font-mono text-xs">{inv.period_label}</td>
             <td className="px-4 py-2.5 font-mono text-xs whitespace-nowrap">
-              {fullDate(inv.period_start)} – {fullDate(inv.period_end)}
-              {inv.period_end_adjusted && (
-                <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">adjusted</span>
+              {inv.subscription_id ? (
+                <>
+                  {fullDate(inv.period_start)} – {fullDate(inv.period_end)}
+                  {inv.period_end_adjusted && (
+                    <span className="ml-1 text-[10px] uppercase tracking-wide text-muted">adjusted</span>
+                  )}
+                </>
+              ) : (
+                '—'
               )}
             </td>
             <td className="px-4 py-2.5 font-mono text-xs">

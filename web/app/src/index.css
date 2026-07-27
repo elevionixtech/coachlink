@@ -78,6 +78,14 @@ button:focus-visible {
     display: none !important;
   }
 
+  /* The app's content wrapper adds padding/width caps; drop them so the sheet is
+     positioned by @page margins alone, at the very top of the page. */
+  main {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
   /* The document fills the sheet rather than sitting in the app's layout. */
   .print-sheet {
     margin: 0 !important;

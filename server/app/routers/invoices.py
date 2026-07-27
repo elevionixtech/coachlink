@@ -5,11 +5,12 @@ from decimal import Decimal
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
-from app.billing import generate_missing, is_overdue
+from app.billing import format_invoice_number, generate_missing, is_overdue
 from app.deps import OrgUser, SessionDep
 from app.models import Client, Invoice, InvoiceStatus, SubscriptionStatus
 from app.routers.common import PAGE_LIMIT_DEFAULT, clamp_limit, get_owned_or_404, next_cursor
 from app.schemas import (
+    AdHocInvoiceIn,
     GenerateMissingIn,
     GenerateMissingOut,
     InvoiceDocumentOut,
@@ -44,12 +45,14 @@ def invoice_out(
     invoice: Invoice, grace_days: int, latest_starts: dict[uuid.UUID, date] | None = None
 ) -> InvoiceOut:
     out = InvoiceOut.model_validate(invoice)
-    out.client_name = invoice.client.name if invoice.client else None
+    out.client_name = invoice.client.name if invoice.client else invoice.bill_to_name
     out.service_name = (
         invoice.subscription.service.name
         if invoice.subscription and invoice.subscription.service
         else None
     )
+    # An ad-hoc invoice has no service; its own description is the line shown instead.
+    out.description = invoice.description
     out.overdue = is_overdue(invoice, grace_days)
     # Mirrors the PATCH guards, so the UI never offers an action the API would refuse.
     out.can_adjust_period = invoice.status is not InvoiceStatus.void and (
@@ -77,14 +80,20 @@ async def list_invoices(
     limit = clamp_limit(limit)
     base = (
         sa.select(Invoice)
-        .join(Client, Invoice.client_id == Client.id)
-        .where(Client.org_id == ctx.org.id)
+        .outerjoin(Client, Invoice.client_id == Client.id)
+        .where(Invoice.org_id == ctx.org.id)
     )
     if client_id is not None:
         base = base.where(Invoice.client_id == client_id)
     if q:
         pattern = f"%{q}%"
-        base = base.where(sa.or_(Invoice.number.ilike(pattern), Client.name.ilike(pattern)))
+        base = base.where(
+            sa.or_(
+                Invoice.number.ilike(pattern),
+                Client.name.ilike(pattern),
+                Invoice.bill_to_name.ilike(pattern),
+            )
+        )
 
     grace = ctx.org.invoice_grace_days
     if status == "overdue":
@@ -110,8 +119,7 @@ async def list_invoices(
 
     outstanding = await session.scalar(
         sa.select(sa.func.coalesce(sa.func.sum(Invoice.amount), 0))
-        .join(Client, Invoice.client_id == Client.id)
-        .where(Client.org_id == ctx.org.id, Invoice.status == InvoiceStatus.due)
+        .where(Invoice.org_id == ctx.org.id, Invoice.status == InvoiceStatus.due)
     )
 
     return InvoicePage(
@@ -119,6 +127,42 @@ async def list_invoices(
         next_cursor=next_cursor(cursor, limit, len(rows)),
         outstanding_total=Decimal(outstanding or 0),
     )
+
+
+@router.post("", status_code=201)
+async def create_invoice(
+    body: AdHocInvoiceIn, ctx: OrgUser, session: SessionDep
+) -> InvoiceOut:
+    """Raise a one-off invoice against a client — amount and line entered by hand, with
+    no subscription behind it (§3.8). Numbered from the org's invoice counter."""
+    client = None
+    if body.client_id is not None:
+        client = await get_owned_or_404(session, Client, body.client_id, ctx.org.id)
+    invoice = Invoice(
+        number=format_invoice_number(
+            ctx.org.invoice_prefix, body.issue_date.year, ctx.org.next_invoice_seq
+        ),
+        org_id=ctx.org.id,
+        client_id=client.id if client else None,
+        bill_to_name=None if client else body.bill_to_name,
+        bill_to_email=None if client else body.bill_to_email,
+        bill_to_phone=None if client else body.bill_to_phone,
+        bill_to_address=None if client else body.bill_to_address,
+        bill_to_gstin=None if client else body.bill_to_gstin,
+        subscription_id=None,
+        description=body.description,
+        period_label="One-off",
+        period_start=body.issue_date,
+        period_end=body.issue_date,
+        issue_date=body.issue_date,
+        amount=body.amount,
+        status=InvoiceStatus.due,
+    )
+    ctx.org.next_invoice_seq += 1
+    session.add(invoice)
+    await session.commit()
+    await session.refresh(invoice)
+    return invoice_out(invoice, ctx.org.invoice_grace_days)
 
 
 @router.post("/generate-missing")
@@ -137,7 +181,7 @@ async def update_invoice(
     invoice_id: uuid.UUID, body: InvoicePatch, ctx: OrgUser, session: SessionDep
 ) -> InvoiceOut:
     invoice = await session.get(Invoice, invoice_id)
-    if invoice is None or invoice.client.org_id != ctx.org.id:
+    if invoice is None or invoice.org_id != ctx.org.id:
         raise HTTPException(404, detail="Invoice not found")
 
     if body.period_end is not None:
@@ -219,7 +263,7 @@ async def get_invoice_document(
     browser's print dialog snapshots the page.
     """
     invoice = await session.get(Invoice, invoice_id)
-    if invoice is None or invoice.client.org_id != ctx.org.id:
+    if invoice is None or invoice.org_id != ctx.org.id:
         raise HTTPException(404, detail="Invoice not found")
 
     latest = await latest_period_starts(session, [invoice.subscription_id])
@@ -244,13 +288,23 @@ async def get_invoice_document(
             phone=ctx.org.phone,
             gstin=ctx.org.gstin,
         ),
-        bill_to=InvoiceParty(
-            name=client.name,
-            company_name=client.company_name,
-            address=client.address,
-            email=client.email,
-            phone=client.phone,
-            gstin=client.gstin,
+        bill_to=(
+            InvoiceParty(
+                name=client.name,
+                company_name=client.company_name,
+                address=client.address,
+                email=client.email,
+                phone=client.phone,
+                gstin=client.gstin,
+            )
+            if client
+            else InvoiceParty(
+                name=invoice.bill_to_name or "—",
+                address=invoice.bill_to_address,
+                email=invoice.bill_to_email,
+                phone=invoice.bill_to_phone,
+                gstin=invoice.bill_to_gstin,
+            )
         ),
         payment=PaymentInfo(
             upi_id=ctx.org.upi_id,
@@ -280,7 +334,7 @@ async def delete_invoice(
     deliberate second step after a void — cancel, then, if you want it gone, delete.
     """
     invoice = await session.get(Invoice, invoice_id)
-    if invoice is None or invoice.client.org_id != ctx.org.id:
+    if invoice is None or invoice.org_id != ctx.org.id:
         raise HTTPException(404, detail="Invoice not found")
 
     if invoice.status is not InvoiceStatus.void:
