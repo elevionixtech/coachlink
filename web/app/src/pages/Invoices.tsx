@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type { ClientOut, InvoicePage, Page } from '../api/types'
+import type { ClientOut, InvoiceDocumentOut, InvoicePage, Page } from '../api/types'
 import { rupees } from '../lib/format'
 import {
   Button, EmptyState, ErrorNote, Field, Modal, Panel, SealHeading, SelectField, Spinner,
@@ -116,17 +116,27 @@ export default function Invoices() {
   )
 }
 
-function AdHocInvoiceModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [recipient, setRecipient] = useState<'client' | 'other'>('client')
-  const [clientId, setClientId] = useState('')
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [address, setAddress] = useState('')
-  const [gstin, setGstin] = useState('')
-  const [description, setDescription] = useState('')
-  const [amount, setAmount] = useState('')
-  const [issueDate, setIssueDate] = useState(new Date().toISOString().slice(0, 10))
+export function AdHocInvoiceModal({
+  invoice,
+  onClose,
+  onSaved,
+}: {
+  invoice?: InvoiceDocumentOut // when present, edit that invoice instead of creating one
+  onClose: () => void
+  onSaved: () => void
+}) {
+  const editing = !!invoice
+  const nonClient = editing && !invoice.client_id
+  const [recipient, setRecipient] = useState<'client' | 'other'>(nonClient ? 'other' : 'client')
+  const [clientId, setClientId] = useState(invoice?.client_id ?? '')
+  const [name, setName] = useState(nonClient ? invoice.bill_to.name ?? '' : '')
+  const [email, setEmail] = useState(nonClient ? invoice.bill_to.email ?? '' : '')
+  const [phone, setPhone] = useState(nonClient ? invoice.bill_to.phone ?? '' : '')
+  const [address, setAddress] = useState(nonClient ? invoice.bill_to.address ?? '' : '')
+  const [gstin, setGstin] = useState(nonClient ? invoice.bill_to.gstin ?? '' : '')
+  const [description, setDescription] = useState(invoice?.description ?? '')
+  const [amount, setAmount] = useState(invoice?.amount ?? '')
+  const [issueDate, setIssueDate] = useState(invoice?.issue_date ?? new Date().toISOString().slice(0, 10))
   const [error, setError] = useState<string | null>(null)
 
   const { data: clients } = useQuery({
@@ -138,8 +148,8 @@ function AdHocInvoiceModal({ onClose, onSaved }: { onClose: () => void; onSaved:
   const recipientReady = isClient ? !!clientId : !!name
 
   const save = useMutation({
-    mutationFn: async () =>
-      api.post('/invoices', {
+    mutationFn: async () => {
+      const payload = {
         // Exactly one of client_id / bill_to_name, matching the server contract.
         client_id: isClient ? clientId : null,
         bill_to_name: isClient ? null : name,
@@ -150,13 +160,15 @@ function AdHocInvoiceModal({ onClose, onSaved }: { onClose: () => void; onSaved:
         description,
         amount,
         issue_date: issueDate,
-      }),
+      }
+      return editing ? api.put(`/invoices/${invoice.id}`, payload) : api.post('/invoices', payload)
+    },
     onSuccess: onSaved,
     onError: (e) => setError(errorMessage(e)),
   })
 
   return (
-    <Modal title="New invoice" onClose={onClose}>
+    <Modal title={editing ? 'Edit invoice' : 'New invoice'} onClose={onClose}>
       <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="space-y-4">
         <p className="text-sm text-muted">
           A one-off invoice — for a workshop, a joining fee, or anything outside a
@@ -215,7 +227,7 @@ function AdHocInvoiceModal({ onClose, onSaved }: { onClose: () => void; onSaved:
         <div className="flex justify-end gap-3">
           <Button type="button" onClick={onClose}>Cancel</Button>
           <Button intent="accent" type="submit" disabled={save.isPending || !recipientReady || !description || !amount}>
-            Create invoice
+            {editing ? 'Save changes' : 'Create invoice'}
           </Button>
         </div>
       </form>

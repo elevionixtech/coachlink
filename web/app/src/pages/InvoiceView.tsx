@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { api } from '../api/client'
 import type { InvoiceDocumentOut } from '../api/types'
 import { fullDate, rupees } from '../lib/format'
 import { Badge, Button, ErrorNote, Panel, Spinner } from '../components/ui'
+import { AdHocInvoiceModal } from './Invoices'
 
 function PaymentSection({ inv }: { inv: InvoiceDocumentOut }) {
   const p = inv.payment
@@ -82,6 +83,8 @@ export default function InvoiceView() {
   // Return to wherever we came from (a client's Invoices tab), else the invoices list.
   const backTo = (location.state as { from?: string } | null)?.from || '/invoices'
   const [downloading, setDownloading] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const queryClient = useQueryClient()
 
   const { data: inv, isLoading, error } = useQuery({
     queryKey: ['invoice', id],
@@ -118,24 +121,42 @@ export default function InvoiceView() {
         <Link to={backTo} className="text-sm text-orange-deep hover:text-orange">
           ← Back to invoices
         </Link>
-        {/* A real generated PDF, not a print of the page. The renderer is lazy-loaded
-            on click so it stays out of the main bundle. */}
-        <Button
-          intent="accent"
-          disabled={downloading}
-          onClick={async () => {
-            setDownloading(true)
-            try {
-              const { downloadInvoicePdf } = await import('../lib/invoicePdf')
-              await downloadInvoicePdf(inv)
-            } finally {
-              setDownloading(false)
-            }
-          }}
-        >
-          {downloading ? 'Preparing…' : 'Download PDF'}
-        </Button>
+        <div className="flex gap-2">
+          {/* One-off invoices are hand-entered, so they can be edited while still due.
+              Subscription invoices come from the billing engine and aren't. */}
+          {!inv.subscription_id && inv.status === 'due' && (
+            <Button onClick={() => setEditing(true)}>Edit</Button>
+          )}
+          {/* A real generated PDF, not a print of the page. The renderer is lazy-loaded
+              on click so it stays out of the main bundle. */}
+          <Button
+            intent="accent"
+            disabled={downloading}
+            onClick={async () => {
+              setDownloading(true)
+              try {
+                const { downloadInvoicePdf } = await import('../lib/invoicePdf')
+                await downloadInvoicePdf(inv)
+              } finally {
+                setDownloading(false)
+              }
+            }}
+          >
+            {downloading ? 'Preparing…' : 'Download PDF'}
+          </Button>
+        </div>
       </div>
+
+      {editing && (
+        <AdHocInvoiceModal
+          invoice={inv}
+          onClose={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false)
+            queryClient.invalidateQueries({ queryKey: ['invoice', id] })
+          }}
+        />
+      )}
 
       <Panel className="print-sheet mx-auto max-w-3xl p-8">
         <div className="flex items-start justify-between gap-8">

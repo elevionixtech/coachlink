@@ -165,6 +165,42 @@ async def create_invoice(
     return invoice_out(invoice, ctx.org.invoice_grace_days)
 
 
+@router.put("/{invoice_id}")
+async def edit_adhoc_invoice(
+    invoice_id: uuid.UUID, body: AdHocInvoiceIn, ctx: OrgUser, session: SessionDep
+) -> InvoiceOut:
+    """Edit a one-off invoice's line, amount, recipient or date (§3.8). Only ad-hoc
+    invoices are editable — a subscription invoice's amount comes from the billing
+    engine — and only while still due, so a settled or voided bill isn't rewritten."""
+    invoice = await session.get(Invoice, invoice_id)
+    if invoice is None or invoice.org_id != ctx.org.id:
+        raise HTTPException(404, detail="Invoice not found")
+    if invoice.subscription_id is not None:
+        raise HTTPException(
+            422, detail="Only a one-off invoice can be edited, not a subscription invoice"
+        )
+    if invoice.status is not InvoiceStatus.due:
+        raise HTTPException(422, detail=f"A {invoice.status} invoice cannot be edited")
+
+    client = None
+    if body.client_id is not None:
+        client = await get_owned_or_404(session, Client, body.client_id, ctx.org.id)
+    invoice.client_id = client.id if client else None
+    invoice.bill_to_name = None if client else body.bill_to_name
+    invoice.bill_to_email = None if client else body.bill_to_email
+    invoice.bill_to_phone = None if client else body.bill_to_phone
+    invoice.bill_to_address = None if client else body.bill_to_address
+    invoice.bill_to_gstin = None if client else body.bill_to_gstin
+    invoice.description = body.description
+    invoice.amount = body.amount
+    invoice.issue_date = body.issue_date
+    invoice.period_start = body.issue_date
+    invoice.period_end = body.issue_date
+    await session.commit()
+    await session.refresh(invoice)
+    return invoice_out(invoice, ctx.org.invoice_grace_days)
+
+
 @router.post("/generate-missing")
 async def generate_missing_invoices(
     body: GenerateMissingIn, ctx: OrgUser, session: SessionDep

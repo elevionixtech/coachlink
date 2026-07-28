@@ -155,3 +155,80 @@ async def test_non_client_invoice_carries_gstin(client, headers_a):
     doc = (await client.get(f"/api/invoices/{res.json()['id']}", headers=headers_a)).json()
     assert doc["bill_to"]["name"] == "Acme Corp"
     assert doc["bill_to"]["gstin"] == "29ABCDE1234F1Z5"
+
+
+# ---------------------------------------------------------------- editing
+
+
+async def test_edit_adhoc_invoice(client, headers_a):
+    rec = await create_client_rec(client, headers_a)
+    inv = (await _adhoc(client, headers_a, rec["id"], description="Old", amount="500")).json()
+    res = await client.put(
+        f"/api/invoices/{inv['id']}",
+        json={"client_id": rec["id"], "description": "Corrected", "amount": "750",
+              "issue_date": "2026-08-01"},
+        headers=headers_a,
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["description"] == "Corrected"
+    assert body["amount"] == "750.00"
+    assert body["issue_date"] == "2026-08-01"
+
+
+async def test_edit_can_switch_to_non_client(client, headers_a):
+    rec = await create_client_rec(client, headers_a)
+    inv = (await _adhoc(client, headers_a, rec["id"])).json()
+    res = await client.put(
+        f"/api/invoices/{inv['id']}",
+        json={"bill_to_name": "Walk-in", "bill_to_gstin": "29ABCDE1234F1Z5",
+              "description": "Guest", "amount": "300", "issue_date": "2026-07-27"},
+        headers=headers_a,
+    )
+    assert res.status_code == 200
+    assert res.json()["client_id"] is None
+    assert res.json()["client_name"] == "Walk-in"
+
+
+async def test_cannot_edit_a_subscription_invoice(client, headers_a):
+    svc = await create_service(client, headers_a, sku="ADH-SUB", rate="3000")
+    rec = await create_client_rec(client, headers_a)
+    await client.post(
+        f"/api/clients/{rec['id']}/subscriptions",
+        json={"service_id": svc["id"], "start_date": "2026-06-01"},
+        headers=headers_a,
+    )
+    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    inv = (await client.get("/api/invoices", headers=headers_a)).json()["items"][0]
+    res = await client.put(
+        f"/api/invoices/{inv['id']}",
+        json={"client_id": rec["id"], "description": "hack", "amount": "1",
+              "issue_date": "2026-07-27"},
+        headers=headers_a,
+    )
+    assert res.status_code == 422
+    assert "subscription invoice" in res.json()["detail"]
+
+
+async def test_cannot_edit_a_paid_invoice(client, headers_a):
+    rec = await create_client_rec(client, headers_a)
+    inv = (await _adhoc(client, headers_a, rec["id"])).json()
+    await client.patch(f"/api/invoices/{inv['id']}", json={"status": "paid"}, headers=headers_a)
+    res = await client.put(
+        f"/api/invoices/{inv['id']}",
+        json={"client_id": rec["id"], "description": "x", "amount": "1",
+              "issue_date": "2026-07-27"},
+        headers=headers_a,
+    )
+    assert res.status_code == 422
+
+
+async def test_edit_invoice_is_org_scoped(client, headers_a, headers_b):
+    rec = await create_client_rec(client, headers_a)
+    inv = (await _adhoc(client, headers_a, rec["id"])).json()
+    res = await client.put(
+        f"/api/invoices/{inv['id']}",
+        json={"bill_to_name": "X", "description": "x", "amount": "1", "issue_date": "2026-07-27"},
+        headers=headers_b,
+    )
+    assert res.status_code == 404
