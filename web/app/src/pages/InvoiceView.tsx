@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import QRCode from 'qrcode'
 import { api } from '../api/client'
 import type { InvoiceDocumentOut } from '../api/types'
@@ -78,6 +78,9 @@ function Party({ label, party }: { label: string; party: InvoiceDocumentOut['bil
 
 export default function InvoiceView() {
   const { id } = useParams<{ id: string }>()
+  const location = useLocation()
+  // Return to wherever we came from (a client's Invoices tab), else the invoices list.
+  const backTo = (location.state as { from?: string } | null)?.from || '/invoices'
   const [downloading, setDownloading] = useState(false)
 
   const { data: inv, isLoading, error } = useQuery({
@@ -90,7 +93,7 @@ export default function InvoiceView() {
     return (
       <div>
         <ErrorNote message="That invoice could not be loaded." />
-        <Link to="/invoices" className="text-sm text-orange-deep hover:text-orange">
+        <Link to={backTo} className="text-sm text-orange-deep hover:text-orange">
           Back to invoices
         </Link>
       </div>
@@ -112,7 +115,7 @@ export default function InvoiceView() {
   return (
     <div>
       <div className="print-hide mb-4 flex items-center justify-between">
-        <Link to="/invoices" className="text-sm text-orange-deep hover:text-orange">
+        <Link to={backTo} className="text-sm text-orange-deep hover:text-orange">
           ← Back to invoices
         </Link>
         {/* A real generated PDF, not a print of the page. The renderer is lazy-loaded

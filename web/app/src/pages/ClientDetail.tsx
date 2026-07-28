@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { BatchOut, ClientOut, EnrollmentOut, InvoiceOut, NoteOut, Page, PricingOptionOut, ServiceOut, SubscriptionOut } from '../api/types'
@@ -25,7 +25,12 @@ function Item({ label, children }: { label: string; children: React.ReactNode })
 
 export default function ClientDetail() {
   const { id } = useParams()
-  const [tab, setTab] = useState<Tab>('Details')
+  // Tab lives in the URL (?tab=Invoices) so returning to this client — e.g. from an
+  // invoice's Back button — lands on the same tab, not the default Details.
+  const [params, setParams] = useSearchParams()
+  const rawTab = params.get('tab')
+  const tab: Tab = (TABS as readonly string[]).includes(rawTab ?? '') ? (rawTab as Tab) : 'Details'
+  const setTab = (t: Tab) => setParams({ tab: t })
   const [editing, setEditing] = useState(false)
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -271,6 +276,10 @@ function InvoicesTab({ clientId }: { clientId: string }) {
 }
 
 export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; onChanged: () => void }) {
+  const loc = useLocation()
+  // Where this table is being viewed from — so the invoice's Back button returns here
+  // (e.g. the client's Invoices tab), not the global invoices list.
+  const from = loc.pathname + loc.search
   const [adjusting, setAdjusting] = useState<InvoiceOut | null>(null)
   const [paying, setPaying] = useState<InvoiceOut | null>(null)
   const mark = useMutation({
@@ -290,7 +299,7 @@ export function InvoiceTable({ invoices, onChanged }: { invoices: InvoiceOut[]; 
         {invoices.map((inv) => (
           <tr key={inv.id}>
             <td className="px-4 py-2.5 font-mono text-xs">
-              <Link to={`/invoices/${inv.id}`} className="text-orange-deep hover:text-orange">
+              <Link to={`/invoices/${inv.id}`} state={{ from }} className="text-orange-deep hover:text-orange">
                 {inv.number}
               </Link>
             </td>
