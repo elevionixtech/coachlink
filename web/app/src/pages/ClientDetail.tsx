@@ -242,6 +242,8 @@ function NotesTab({ clientId }: { clientId: string }) {
 function InvoicesTab({ clientId }: { clientId: string }) {
   const queryClient = useQueryClient()
   const [message, setMessage] = useState<string | null>(null)
+  const [advancing, setAdvancing] = useState(false)
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['client-invoices', clientId] })
 
   const { data: invoices } = useQuery({
     queryKey: ['client-invoices', clientId],
@@ -253,7 +255,7 @@ function InvoicesTab({ clientId }: { clientId: string }) {
       (await api.post<{ created: number }>('/invoices/generate-missing', { client_id: clientId })).data,
     onSuccess: (d) => {
       setMessage(`${d.created} invoice(s) created`)
-      queryClient.invalidateQueries({ queryKey: ['client-invoices', clientId] })
+      refresh()
     },
     onError: (e) => setMessage(errorMessage(e)),
   })
@@ -262,16 +264,82 @@ function InvoicesTab({ clientId }: { clientId: string }) {
     <div>
       <div className="mb-3 flex items-center justify-between">
         <span className="font-mono text-xs text-brown-mid">{message}</span>
-        <Button intent="accent" onClick={() => generate.mutate()} disabled={generate.isPending}>
-          Generate missing invoices
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setAdvancing(true)}>Bill in advance</Button>
+          <Button intent="accent" onClick={() => generate.mutate()} disabled={generate.isPending}>
+            Generate missing invoices
+          </Button>
+        </div>
       </div>
+      {advancing && (
+        <AdvanceBillModal
+          clientId={clientId}
+          onClose={() => setAdvancing(false)}
+          onDone={(created) => {
+            setAdvancing(false)
+            setMessage(`${created} advance invoice(s) created`)
+            refresh()
+          }}
+        />
+      )}
       {!invoices?.length ? (
         <Panel><EmptyState title="No invoices" hint="Invoices are generated from active subscriptions." /></Panel>
       ) : (
-        <InvoiceTable invoices={invoices} onChanged={() => queryClient.invalidateQueries({ queryKey: ['client-invoices', clientId] })} />
+        <InvoiceTable invoices={invoices} onChanged={refresh} />
       )}
     </div>
+  )
+}
+
+function AdvanceBillModal({
+  clientId,
+  onClose,
+  onDone,
+}: {
+  clientId: string
+  onClose: () => void
+  onDone: (created: number) => void
+}) {
+  const [periods, setPeriods] = useState('1')
+  const [error, setError] = useState<string | null>(null)
+
+  const save = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post<{ created: number }>(`/clients/${clientId}/invoices/advance`, {
+          periods: Number(periods),
+        })
+      ).data,
+    onSuccess: (d) => onDone(d.created),
+    onError: (e) => setError(errorMessage(e)),
+  })
+
+  return (
+    <Modal title="Bill in advance" onClose={onClose}>
+      <form onSubmit={(e) => { e.preventDefault(); save.mutate() }} className="space-y-4">
+        <p className="text-sm text-muted">
+          Generate the next upcoming invoice(s) for this client's active subscriptions,
+          ahead of the automatic schedule — useful when they want to pay early.
+        </p>
+        <Field
+          label="Upcoming periods to bill"
+          type="number"
+          min={1}
+          max={24}
+          required
+          value={periods}
+          onChange={(e) => setPeriods(e.target.value)}
+          hint="One per subscription per period (e.g. next 2 months)"
+        />
+        <ErrorNote message={error} />
+        <div className="flex justify-end gap-3">
+          <Button type="button" onClick={onClose}>Cancel</Button>
+          <Button intent="accent" type="submit" disabled={save.isPending || !periods}>
+            Generate
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

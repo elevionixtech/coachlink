@@ -26,11 +26,13 @@ from app.routers.common import (
     not_archived,
 )
 from app.schemas import (
+    AdvanceInvoiceIn,
     ClientIn,
     ClientOut,
     ClientPatch,
     ClientRef,
     EnrollmentOut,
+    GenerateMissingOut,
     InvoiceOut,
     NoteIn,
     NoteOut,
@@ -298,6 +300,20 @@ async def list_client_invoices(
     ).all()
     latest = await latest_period_starts(session, [i.subscription_id for i in invoices])
     return [invoice_out(i, ctx.org.invoice_grace_days, latest) for i in invoices]
+
+
+@router.post("/{client_id}/invoices/advance")
+async def bill_client_in_advance(
+    client_id: uuid.UUID, body: AdvanceInvoiceIn, ctx: OrgUser, session: SessionDep
+) -> GenerateMissingOut:
+    """Generate the next upcoming invoice(s) for this client's active subscriptions,
+    ahead of the automatic schedule — for a client who wants to pay early (§5.2)."""
+    from app.billing import generate_advance
+
+    await get_owned_or_404(session, Client, client_id, ctx.org.id)
+    created = await generate_advance(session, ctx.org, client_id, body.periods)
+    await session.commit()
+    return GenerateMissingOut(created=created)
 
 
 @router.get("/{client_id}/enrollments")

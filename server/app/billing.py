@@ -158,6 +158,54 @@ def format_invoice_number(prefix: str, year: int, seq: int) -> str:
     return f"{prefix}-{year}-{seq:04d}"
 
 
+def _emit_periods(
+    session: AsyncSession,
+    org: Organisation,
+    sub: Subscription,
+    periods: list[tuple[str, date, date]],
+    carry: Decimal,
+) -> tuple[int, Decimal]:
+    """Create an invoice for each (label, start, end), applying the subscription's carry
+    to the first and rolling any remaining credit forward. Returns (count, remaining
+    carry) so the caller can persist it (§3.8)."""
+    base = subscription_amount(sub)
+    created = 0
+    for label, start, end in periods:
+        applied = base + carry
+        if applied < 0:
+            amount = Decimal("0.00")
+            carry = applied  # remaining credit rolls to the next invoice
+        else:
+            amount = applied.quantize(Decimal("0.01"))
+            carry = Decimal("0")
+        session.add(
+            Invoice(
+                number=format_invoice_number(
+                    org.invoice_prefix, start.year, org.next_invoice_seq
+                ),
+                org_id=org.id,
+                client_id=sub.client_id,
+                subscription_id=sub.id,
+                period_label=label,
+                period_start=start,
+                period_end=end,
+                issue_date=start,
+                amount=amount,
+                subtotal=sub.service.rate,
+            )
+        )
+        org.next_invoice_seq += 1
+        created += 1
+    return created, carry
+
+
+async def _sub_invoices(session: AsyncSession, sub_id: uuid.UUID) -> list[Invoice]:
+    rows = await session.scalars(
+        sa.select(Invoice).where(Invoice.subscription_id == sub_id)
+    )
+    return list(rows.all())
+
+
 async def generate_missing(
     session: AsyncSession, org: Organisation, client_id: uuid.UUID | None = None
 ) -> int:
@@ -174,53 +222,80 @@ async def generate_missing(
     today = date.today()
     created = 0
     for sub in subs:
-        invoices = list(
-            (
-                await session.scalars(
-                    sa.select(Invoice).where(Invoice.subscription_id == sub.id)
-                )
-            ).all()
-        )
+        invoices = await _sub_invoices(session, sub.id)
         live = live_invoices(invoices)
         existing_starts = {i.period_start for i in live}
         covered = [(i.period_start, i.period_end) for i in live]
-        base = subscription_amount(sub)
-        # Carry from earlier under/overpayments rides on the first invoice generated
-        # here; a credit bigger than one invoice rolls forward to the next (§3.8).
-        carry = sub.carry_balance
-        for label, issue_date, period_end in missing_periods(
+        periods = missing_periods(
             billing_anchor(sub, invoices),
             sub.service.billing_interval,
             existing_starts,
             today,
             covered,
-        ):
-            applied = base + carry
-            if applied < 0:
-                amount = Decimal("0.00")
-                carry = applied  # remaining credit rolls to the next invoice
-            else:
-                amount = applied.quantize(Decimal("0.01"))
-                carry = Decimal("0")
-            session.add(
-                Invoice(
-                    number=format_invoice_number(
-                        org.invoice_prefix, issue_date.year, org.next_invoice_seq
-                    ),
-                    org_id=org.id,
-                    client_id=sub.client_id,
-                    subscription_id=sub.id,
-                    period_label=label,
-                    period_start=issue_date,
-                    period_end=period_end,
-                    issue_date=issue_date,
-                    amount=amount,
-                    subtotal=sub.service.rate,
-                )
-            )
-            org.next_invoice_seq += 1
-            created += 1
+        )
+        count, carry = _emit_periods(session, org, sub, periods, sub.carry_balance)
         sub.carry_balance = carry
+        created += count
+    await session.flush()
+    return created
+
+
+def upcoming_periods(
+    anchor: date,
+    interval: BillingInterval,
+    existing_starts: set[date],
+    covered: list[tuple[date, date]],
+    count: int,
+) -> list[tuple[str, date, date]]:
+    """The next `count` unbilled periods from the anchor, walking past today into the
+    future — for billing a client ahead of the automatic schedule (§5.2)."""
+    if interval == BillingInterval.na:
+        return []  # a one-time service has no upcoming period
+    out: list[tuple[str, date, date]] = []
+    n = 0
+    while len(out) < count and n < 2000:
+        start = nth_period_start(anchor, interval, n)
+        end = nth_period_start(anchor, interval, n + 1) - timedelta(days=1)
+        n += 1
+        if start in existing_starts or any(lo <= start <= hi for lo, hi in covered):
+            continue
+        out.append((period_label(start, interval), start, end))
+    return out
+
+
+async def generate_advance(
+    session: AsyncSession, org: Organisation, client_id: uuid.UUID, periods: int = 1
+) -> int:
+    """Generate the next `periods` upcoming invoices per active subscription for one
+    client, beyond today's schedule — so an early payer can be billed now (§5.2)."""
+    subs = (
+        await session.scalars(
+            sa.select(Subscription)
+            .join(Client, Subscription.client_id == Client.id)
+            .where(
+                Client.org_id == org.id,
+                Subscription.client_id == client_id,
+                Subscription.status == SubscriptionStatus.active,
+            )
+        )
+    ).all()
+
+    created = 0
+    for sub in subs:
+        invoices = await _sub_invoices(session, sub.id)
+        live = live_invoices(invoices)
+        existing_starts = {i.period_start for i in live}
+        covered = [(i.period_start, i.period_end) for i in live]
+        ups = upcoming_periods(
+            billing_anchor(sub, invoices),
+            sub.service.billing_interval,
+            existing_starts,
+            covered,
+            periods,
+        )
+        count, carry = _emit_periods(session, org, sub, ups, sub.carry_balance)
+        sub.carry_balance = carry
+        created += count
     await session.flush()
     return created
 

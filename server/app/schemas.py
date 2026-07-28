@@ -726,6 +726,11 @@ class GenerateMissingOut(BaseModel):
     created: int
 
 
+class AdvanceInvoiceIn(BaseModel):
+    # How many upcoming periods to bill ahead of the automatic schedule.
+    periods: int = Field(default=1, ge=1, le=24)
+
+
 # ---------------------------------------------------------------- dashboard
 
 

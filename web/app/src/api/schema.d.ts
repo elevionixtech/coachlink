@@ -353,6 +353,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clients/{client_id}/invoices/advance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Bill Client In Advance
+         * @description Generate the next upcoming invoice(s) for this client's active subscriptions,
+         *     ahead of the automatic schedule — for a client who wants to pay early (§5.2).
+         */
+        post: operations["bill_client_in_advance_api_clients__client_id__invoices_advance_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clients/{client_id}/enrollments": {
         parameters: {
             query?: never;
@@ -761,6 +782,14 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** AdvanceInvoiceIn */
+        AdvanceInvoiceIn: {
+            /**
+             * Periods
+             * @default 1
+             */
+            periods: number;
         };
         /** AssignPlanIn */
         AssignPlanIn: {
@@ -3239,6 +3268,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    bill_client_in_advance_api_clients__client_id__invoices_advance_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                client_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvanceInvoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateMissingOut"];
                 };
             };
             /** @description Validation Error */
