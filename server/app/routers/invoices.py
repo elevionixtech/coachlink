@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.billing import format_invoice_number, generate_missing, is_overdue
 from app.deps import OrgUser, SessionDep
-from app.models import Client, Invoice, InvoiceStatus, SubscriptionStatus
+from app.models import Client, Invoice, InvoiceStatus, PaymentMethod, SubscriptionStatus
 from app.routers.common import PAGE_LIMIT_DEFAULT, clamp_limit, get_owned_or_404, next_cursor
 from app.schemas import (
     AdHocInvoiceIn,
@@ -286,6 +286,9 @@ def _record_payment(invoice: Invoice, body: InvoicePatch) -> None:
         invoice.difference_carried = True
 
     invoice.paid_amount = paid.quantize(Decimal("0.01"))
+    # Capture when and how it was paid, defaulting to today by UPI (§3.8).
+    invoice.payment_date = body.payment_date or date.today()
+    invoice.payment_method = body.payment_method or PaymentMethod.upi
     invoice.status = InvoiceStatus.paid
 
 

@@ -267,9 +267,15 @@ export default function InvoiceView() {
         {inv.status === 'paid' && inv.paid_amount != null && (
           <div className="print-keep mt-1 space-y-0.5 text-sm">
             <div className="flex justify-between">
-              <span>Paid</span>
+              <span>Paid{inv.payment_method ? ` via ${inv.payment_method}` : ''}</span>
               <span className="font-mono">{rupees(inv.paid_amount)}</span>
             </div>
+            {inv.payment_date && (
+              <div className="flex justify-between text-muted">
+                <span>Payment date</span>
+                <span className="font-mono">{fullDate(inv.payment_date)}</span>
+              </div>
+            )}
             {inv.paid_amount !== inv.amount && (
               <div className="flex justify-between text-muted">
                 <span>{Number(inv.paid_amount) < Number(inv.amount) ? 'Balance' : 'Overpaid'}</span>

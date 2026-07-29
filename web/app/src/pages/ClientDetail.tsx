@@ -535,6 +535,8 @@ function PaymentModal({
   const [amount, setAmount] = useState(invoice.amount)
   // 'settle' closes the invoice at what was paid; 'carry' rides the difference forward.
   const [handling, setHandling] = useState<'settle' | 'carry'>('settle')
+  const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10))
+  const [paymentMethod, setPaymentMethod] = useState('UPI')
   const [error, setError] = useState<string | null>(null)
 
   const paid = Number(amount)
@@ -547,6 +549,8 @@ function PaymentModal({
       api.patch(`/invoices/${invoice.id}`, {
         status: 'paid',
         paid_amount: amount,
+        payment_date: paymentDate,
+        payment_method: paymentMethod,
         carry_forward: mismatch && handling === 'carry',
       }),
     onSuccess: onSaved,
@@ -569,6 +573,24 @@ function PaymentModal({
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
         />
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Payment date"
+            type="date"
+            required
+            value={paymentDate}
+            onChange={(e) => setPaymentDate(e.target.value)}
+          />
+          <SelectField
+            label="Payment mode"
+            value={paymentMethod}
+            onChange={(e) => setPaymentMethod(e.target.value)}
+          >
+            {['UPI', 'Cash', 'Bank Transfer', 'Card', 'Cheque', 'Other'].map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </SelectField>
+        </div>
 
         {mismatch && (
           <div className="space-y-2 rounded-md bg-yellow-card p-3">

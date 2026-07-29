@@ -96,6 +96,15 @@ class InvoiceStatus(enum.StrEnum):
     void = "void"
 
 
+class PaymentMethod(enum.StrEnum):
+    upi = "UPI"
+    cash = "Cash"
+    bank_transfer = "Bank Transfer"
+    card = "Card"
+    cheque = "Cheque"
+    other = "Other"
+
+
 class BatchStatus(enum.StrEnum):
     active = "active"
     inactive = "inactive"
@@ -542,6 +551,11 @@ class Invoice(TimestampMixin, Base):
     # What was actually received, set when the invoice is marked paid. May differ from
     # amount when a payment is settled short/over or the difference is carried forward.
     paid_amount: Mapped[Decimal | None] = mapped_column(sa.Numeric(12, 2))
+    # When the payment was received and how — captured when the invoice is marked paid.
+    payment_date: Mapped[date | None] = mapped_column(sa.Date)
+    payment_method: Mapped[PaymentMethod | None] = mapped_column(
+        str_enum(PaymentMethod, "payment_method")
+    )
     # True only when a payment difference was carried onto the subscription's next
     # invoice (not settled). Lets the listing surface the still-consequential ones.
     difference_carried: Mapped[bool] = mapped_column(

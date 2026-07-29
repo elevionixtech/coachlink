@@ -615,23 +615,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/invoices/generate-missing": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Generate Missing Invoices */
-        post: operations["generate_missing_invoices_api_invoices_generate_missing_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/invoices/{invoice_id}": {
         parameters: {
             query?: never;
@@ -647,7 +630,13 @@ export interface paths {
          *     browser's print dialog snapshots the page.
          */
         get: operations["get_invoice_document_api_invoices__invoice_id__get"];
-        put?: never;
+        /**
+         * Edit Adhoc Invoice
+         * @description Edit a one-off invoice's line, amount, recipient or date (§3.8). Only ad-hoc
+         *     invoices are editable — a subscription invoice's amount comes from the billing
+         *     engine — and only while still due, so a settled or voided bill isn't rewritten.
+         */
+        put: operations["edit_adhoc_invoice_api_invoices__invoice_id__put"];
         post?: never;
         /**
          * Delete Invoice
@@ -664,6 +653,23 @@ export interface paths {
         head?: never;
         /** Update Invoice */
         patch: operations["update_invoice_api_invoices__invoice_id__patch"];
+        trace?: never;
+    };
+    "/api/invoices/generate-missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate Missing Invoices */
+        post: operations["generate_missing_invoices_api_invoices_generate_missing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/dashboard": {
@@ -1362,6 +1368,9 @@ export interface components {
             subtotal?: string | null;
             /** Paid Amount */
             paid_amount?: string | null;
+            /** Payment Date */
+            payment_date?: string | null;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
             /**
              * Difference Carried
              * @default false
@@ -1456,6 +1465,9 @@ export interface components {
             subtotal?: string | null;
             /** Paid Amount */
             paid_amount?: string | null;
+            /** Payment Date */
+            payment_date?: string | null;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
             /**
              * Difference Carried
              * @default false
@@ -1520,6 +1532,9 @@ export interface components {
             period_end?: string | null;
             /** Paid Amount */
             paid_amount?: number | string | null;
+            /** Payment Date */
+            payment_date?: string | null;
+            payment_method?: components["schemas"]["PaymentMethod"] | null;
             /**
              * Carry Forward
              * @default false
@@ -1839,6 +1854,11 @@ export interface components {
              */
             show_qr: boolean;
         };
+        /**
+         * PaymentMethod
+         * @enum {string}
+         */
+        PaymentMethod: "UPI" | "Cash" | "Bank Transfer" | "Card" | "Cheque" | "Other";
         /** PlanIn */
         PlanIn: {
             /** Name */
@@ -4093,39 +4113,6 @@ export interface operations {
             };
         };
     };
-    generate_missing_invoices_api_invoices_generate_missing_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GenerateMissingIn"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GenerateMissingOut"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     get_invoice_document_api_invoices__invoice_id__get: {
         parameters: {
             query?: never;
@@ -4144,6 +4131,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceDocumentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_adhoc_invoice_api_invoices__invoice_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdHocInvoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
                 };
             };
             /** @description Validation Error */
@@ -4208,6 +4230,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    generate_missing_invoices_api_invoices_generate_missing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateMissingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateMissingOut"];
                 };
             };
             /** @description Validation Error */

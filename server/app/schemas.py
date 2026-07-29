@@ -15,6 +15,7 @@ from app.models import (
     Gender,
     InvoiceStatus,
     LifecycleStage,
+    PaymentMethod,
     PricingMode,
     Role,
     ServiceType,
@@ -616,6 +617,8 @@ class InvoiceOut(ORMModel):
     amount: Decimal
     subtotal: Decimal | None = None
     paid_amount: Decimal | None = None
+    payment_date: date | None = None
+    payment_method: PaymentMethod | None = None
     difference_carried: bool = False
     status: InvoiceStatus
     overdue: bool = False
@@ -680,6 +683,8 @@ class InvoicePatch(BaseModel):
     # carry_forward decides whether the difference rides to the next invoice or the
     # invoice is simply settled at what was paid.
     paid_amount: Decimal | None = Field(default=None, ge=0)
+    payment_date: date | None = None
+    payment_method: PaymentMethod | None = None
     carry_forward: bool = False
 
     @field_validator("status")

@@ -151,7 +151,16 @@ function InvoiceDoc({ inv, qr }: { inv: InvoiceDocumentOut; qr: string | null })
         </View>
         {inv.status === 'paid' && inv.paid_amount != null && (
           <View style={{ marginTop: 4 }}>
-            <View style={s.row}><Text>Paid</Text><Text style={s.mono}>{money(inv.paid_amount)}</Text></View>
+            <View style={s.row}>
+              <Text>Paid{inv.payment_method ? ` via ${inv.payment_method}` : ''}</Text>
+              <Text style={s.mono}>{money(inv.paid_amount)}</Text>
+            </View>
+            {inv.payment_date && (
+              <View style={[s.row, { marginTop: 2 }]}>
+                <Text style={{ color: C.muted }}>Payment date</Text>
+                <Text style={[s.mono, { color: C.muted }]}>{fdate(inv.payment_date)}</Text>
+              </View>
+            )}
             {paidLess && (
               <View style={[s.row, { marginTop: 2 }]}>
                 <Text style={{ color: C.muted }}>
