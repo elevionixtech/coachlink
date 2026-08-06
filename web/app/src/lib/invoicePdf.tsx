@@ -227,7 +227,10 @@ export async function downloadInvoicePdf(inv: InvoiceDocumentOut): Promise<void>
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${inv.number}.pdf`
+  // Include the recipient's name so the file is easy to identify; strip characters that
+  // aren't valid in filenames.
+  const who = (inv.bill_to.name || '').replace(/[/\\:*?"<>|]/g, '').trim()
+  a.download = who ? `${inv.number} - ${who}.pdf` : `${inv.number}.pdf`
   document.body.appendChild(a)
   a.click()
   a.remove()
