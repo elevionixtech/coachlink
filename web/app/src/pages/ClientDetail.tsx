@@ -645,12 +645,32 @@ function SubscriptionsTab({
   accountType: ClientOut['account_type']
 }) {
   const queryClient = useQueryClient()
-  const [adding, setAdding] = useState(false)
+  // null = closed; 'new' = create; a subscription = edit that one.
+  const [editing, setEditing] = useState<SubscriptionOut | 'new' | null>(null)
   const [serviceId, setServiceId] = useState('')
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10))
   const [discount, setDiscount] = useState('0')
   const [pricingOptionId, setPricingOptionId] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const isOpen = editing !== null
+  const editSub = editing && editing !== 'new' ? editing : null
+
+  const openNew = () => {
+    setServiceId('')
+    setStartDate(new Date().toISOString().slice(0, 10))
+    setDiscount('0')
+    setPricingOptionId('')
+    setError(null)
+    setEditing('new')
+  }
+  const openEdit = (s: SubscriptionOut) => {
+    setServiceId(s.service_id)
+    setStartDate(s.start_date)
+    setDiscount(String(parseFloat(s.discount_pct)))
+    setPricingOptionId(s.pricing_option_id ?? '')
+    setError(null)
+    setEditing(s)
+  }
 
   const { data: subs } = useQuery({
     queryKey: ['client-subs', clientId],
@@ -659,13 +679,13 @@ function SubscriptionsTab({
   const { data: services } = useQuery({
     queryKey: ['services', '', ''],
     queryFn: async () => (await api.get<Page<ServiceOut>>('/services', { params: { limit: 200 } })).data,
-    enabled: adding,
+    enabled: isOpen,
   })
 
   const { data: catalog } = useQuery({
     queryKey: ['pricing-options'],
     queryFn: async () => (await api.get<PricingOptionOut[]>('/pricing-options')).data,
-    enabled: adding,
+    enabled: isOpen,
   })
 
   const service = services?.items.find((s) => s.id === serviceId)
@@ -677,16 +697,20 @@ function SubscriptionsTab({
   })
   const chosen = eligible.find((p) => p.pricing_option_id === pricingOptionId)
 
-  const add = useMutation({
-    mutationFn: async () =>
-      api.post(`/clients/${clientId}/subscriptions`, {
+  const save = useMutation({
+    mutationFn: async () => {
+      const payload = {
         service_id: serviceId,
         start_date: startDate,
         pricing_option_id: pricingOptionId || null,
         discount_pct: pricingOptionId ? '0' : discount || '0',
-      }),
+      }
+      return editSub
+        ? api.put(`/subscriptions/${editSub.id}`, payload)
+        : api.post(`/clients/${clientId}/subscriptions`, payload)
+    },
     onSuccess: () => {
-      setAdding(false)
+      setEditing(null)
       setError(null)
       queryClient.invalidateQueries({ queryKey: ['client-subs', clientId] })
       queryClient.invalidateQueries({ queryKey: ['client', clientId] })
@@ -702,7 +726,7 @@ function SubscriptionsTab({
   return (
     <div>
       <div className="mb-3 flex justify-end">
-        <Button intent="accent" onClick={() => setAdding(true)}>New subscription</Button>
+        <Button intent="accent" onClick={openNew}>New subscription</Button>
       </div>
       {!subs?.length ? (
         <Panel><EmptyState title="No subscriptions" hint="Subscribing a client promotes them to Customer." /></Panel>
@@ -721,21 +745,24 @@ function SubscriptionsTab({
               <td className="px-4 py-2.5">
                 <Badge tone={s.status === 'active' ? 'active' : 'draft'}>{s.status === 'active' ? 'Active' : 'Ended'}</Badge>
               </td>
-              <td className="px-4 py-2.5 text-right">
+              <td className="px-4 py-2.5 text-right whitespace-nowrap">
                 {s.status === 'active' && (
-                  <Button className="!px-2 !py-1 text-xs" onClick={() => end.mutate(s.id)}>End</Button>
+                  <>
+                    <Button className="!px-2 !py-1 text-xs" onClick={() => openEdit(s)}>Edit</Button>{' '}
+                    <Button className="!px-2 !py-1 text-xs" onClick={() => end.mutate(s.id)}>End</Button>
+                  </>
                 )}
               </td>
             </tr>
           ))}
         </Table>
       )}
-      {adding && (
-        <Modal title="New subscription" onClose={() => setAdding(false)}>
+      {isOpen && (
+        <Modal title={editSub ? 'Edit subscription' : 'New subscription'} onClose={() => setEditing(null)}>
           <form
             onSubmit={(e) => {
               e.preventDefault()
-              add.mutate()
+              save.mutate()
             }}
             className="space-y-4"
           >
@@ -783,10 +810,18 @@ function SubscriptionsTab({
                 Bills <span className="font-mono">{rupees(chosen.effective_rate ?? '0')}</span> per period.
               </p>
             )}
+            {editSub && (
+              <p className="text-xs text-brown-mid">
+                Changes apply to invoices generated from now on — already-issued invoices
+                keep their amount.
+              </p>
+            )}
             <ErrorNote message={error} />
             <div className="flex justify-end gap-3">
-              <Button type="button" onClick={() => setAdding(false)}>Cancel</Button>
-              <Button intent="accent" type="submit" disabled={add.isPending || !serviceId}>Create subscription</Button>
+              <Button type="button" onClick={() => setEditing(null)}>Cancel</Button>
+              <Button intent="accent" type="submit" disabled={save.isPending || !serviceId}>
+                {editSub ? 'Save changes' : 'Create subscription'}
+              </Button>
             </div>
           </form>
         </Modal>

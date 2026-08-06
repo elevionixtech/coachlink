@@ -185,16 +185,21 @@ async def test_extending_a_paid_period_shifts_the_next_one(client, headers_a):
     await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
     inv = (await _invoices(client, headers_a))[-1]
     await client.patch(f"/api/invoices/{inv['id']}", json={"status": "paid"}, headers=headers_a)
-    # Close it early, relative to the period so the test doesn't rot as the date advances.
+    # Adjust the period end, relative to the period so the test doesn't rot as time passes.
     early = date.fromisoformat(inv["period_start"]) + timedelta(days=14)
     await client.patch(
         f"/api/invoices/{inv['id']}", json={"period_end": str(early)}, headers=headers_a
     )
 
-    await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
+    # Advance-bill the next period (independent of today's date) — it must pick up the day
+    # after the adjusted end, proving the shift works off a paid invoice.
+    res = await client.post(
+        f"/api/clients/{rec['id']}/invoices/advance", json={"periods": 1}, headers=headers_a
+    )
+    assert res.json()["created"] == 1
     after = await _invoices(client, headers_a)
     extended = next(i for i in after if i["id"] == inv["id"])
-    assert extended["period_end"] == str(early)  # the shift worked off a paid invoice
+    assert extended["period_end"] == str(early)
     assert any(i["period_start"] == str(early + timedelta(days=1)) for i in after)
 
 
@@ -318,9 +323,12 @@ async def test_closing_a_period_early_starts_the_next_one_sooner(client, headers
     assert res.status_code == 200, res.text
     assert res.json()["period_end"] == str(early_end)
 
-    # The next period picks up the very next day, so billing resumes sooner.
-    res = await client.post("/api/invoices/generate-missing", json={}, headers=headers_a)
-    assert res.json()["created"] >= 1
+    # The next period picks up the very next day. Advance-bill it so the assertion doesn't
+    # depend on where today falls relative to the period.
+    res = await client.post(
+        f"/api/clients/{rec['id']}/invoices/advance", json={"periods": 1}, headers=headers_a
+    )
+    assert res.json()["created"] == 1
     periods = [(i["period_start"], i["period_end"]) for i in await _invoices(client, headers_a)]
     assert (latest["period_start"], str(early_end)) in periods
     assert any(s == str(early_end + timedelta(days=1)) for s, _ in periods)
