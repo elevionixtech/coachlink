@@ -79,6 +79,10 @@ async def dashboard(ctx: OrgUser, session: SessionDep) -> DashboardOut:
         .unique()
         .all()
     )
+    # A batch that lists days runs only on those; one with no days set is unscheduled
+    # and still shown (§5.5). Filtered in Python to stay portable across SQLite/Postgres.
+    weekday = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")[today.weekday()]
+    todays = [b for b in todays if not b.days_of_week or weekday in b.days_of_week]
     counts = await enrolled_counts(session, [b.id for b in todays])
 
     recent = (
