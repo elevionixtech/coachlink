@@ -239,3 +239,16 @@ async def test_remove_enrollment_is_org_scoped(client, headers_a, headers_b):
     e = (await _enroll(client, headers_a, rec["id"], b["id"])).json()
     assert (await client.delete(f"/api/enrollments/{e['id']}", headers=headers_b)).status_code == 404
     assert (await client.delete(f"/api/enrollments/{e['id']}", headers=headers_a)).status_code == 204
+
+
+async def test_eligible_excludes_clients_in_other_batches(client, headers_a):
+    """One batch per client, so someone in another batch isn't eligible for this one."""
+    b1 = await _open_batch(client, headers_a, "EL-OTHER-1")
+    b2 = await _open_batch(client, headers_a, "EL-OTHER-2")
+    in_b1 = await create_client_rec(client, headers_a, name="Already In B1")
+    free = await create_client_rec(client, headers_a, name="Free Agent")
+    await _enroll(client, headers_a, in_b1["id"], b1["id"])
+
+    eligible = await _eligible(client, headers_a, b2["id"])
+    assert "Free Agent" in eligible
+    assert "Already In B1" not in eligible  # in another batch -> not eligible

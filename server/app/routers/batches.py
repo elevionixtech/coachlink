@@ -176,12 +176,14 @@ async def batch_roster(
 async def eligible_clients(
     batch_id: uuid.UUID, ctx: OrgUser, session: SessionDep
 ) -> list[ClientRef]:
-    """Clients who may still enrol in this batch — those with an active subscription to
-    one of its services (§5.5), minus anyone already enrolled. A batch with no listed
-    service is open, so every not-yet-enrolled client qualifies."""
+    """Clients who may enrol in this batch — those with an active subscription to one of
+    its services (§5.5), minus anyone already in a batch. A client can be in only one
+    batch, so anyone already enrolled anywhere is excluded; a batch with no listed
+    service is open to every unenrolled client."""
     batch = await get_owned_or_404(session, Batch, batch_id, ctx.org.id)
 
-    enrolled = sa.select(Enrollment.client_id).where(Enrollment.batch_id == batch.id)
+    # Anyone already in ANY batch is ineligible — one batch per client (§5.5).
+    enrolled = sa.select(Enrollment.client_id)
     stmt = (
         sa.select(Client)
         .where(Client.org_id == ctx.org.id, not_archived(Client), Client.id.notin_(enrolled))
