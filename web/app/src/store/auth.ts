@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UserOut } from '../api/types'
+import { queryClient } from '../api/queryClient'
 
 interface AuthState {
   accessToken: string | null
@@ -19,7 +20,11 @@ export const useAuth = create<AuthState>()(
       user: null,
       setSession: (accessToken, refreshToken, user) => set({ accessToken, refreshToken, user }),
       setAccessToken: (accessToken) => set({ accessToken }),
-      logout: () => set({ accessToken: null, refreshToken: null, user: null }),
+      logout: () => {
+        // Drop cached data so the previous org's data can't show in the next session.
+        queryClient.clear()
+        set({ accessToken: null, refreshToken: null, user: null })
+      },
     }),
     { name: 'coachlink-auth' },
   ),
