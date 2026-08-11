@@ -1,3 +1,5 @@
+import uuid
+
 import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
@@ -65,13 +67,26 @@ async def create_enrollment(
     await get_owned_or_404(session, Client, body.client_id, ctx.org.id)
     batch = await get_owned_or_404(session, Batch, body.batch_id, ctx.org.id)
 
-    duplicate = await session.scalar(
-        sa.select(Enrollment.id).where(
-            Enrollment.batch_id == body.batch_id, Enrollment.client_id == body.client_id
-        )
+    # A client may be in only one batch at a time (§5.5). Reject if already enrolled
+    # anywhere — remove them from the current batch first.
+    existing = await session.scalar(
+        sa.select(Enrollment)
+        .where(Enrollment.client_id == body.client_id)
+        .limit(1)
     )
-    if duplicate:
-        raise HTTPException(409, detail="Client is already enrolled in this batch")
+    if existing is not None:
+        where = (
+            "this batch"
+            if existing.batch_id == body.batch_id
+            else f"'{existing.batch.name}'"
+        )
+        raise HTTPException(
+            409,
+            detail=(
+                f"Client is already enrolled in {where} — "
+                "a client can be in only one batch."
+            ),
+        )
 
     # A batch that lists services only admits clients actively subscribed to one of them
     # (§5.5). A batch with no listed service stays open to anyone.
@@ -114,3 +129,15 @@ async def create_enrollment(
     await session.commit()
     await session.refresh(enrollment)
     return enrollment_out(enrollment, capacity_warning)
+
+
+@router.delete("/{enrollment_id}", status_code=204)
+async def remove_enrollment(
+    enrollment_id: uuid.UUID, ctx: OrgUser, session: SessionDep
+) -> None:
+    """Remove a client from a batch (§5.5). Tenancy walks up through the client."""
+    enrollment = await session.get(Enrollment, enrollment_id)
+    if enrollment is None or enrollment.client.org_id != ctx.org.id:
+        raise HTTPException(404, detail="Enrollment not found")
+    await session.delete(enrollment)
+    await session.commit()

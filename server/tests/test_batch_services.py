@@ -199,3 +199,43 @@ async def test_batch_invalid_day_rejected(client, headers_a):
         headers=headers_a,
     )
     assert res.status_code == 422
+
+
+# ---------------------------------------------------------------- one batch per client
+
+
+async def _open_batch(client, headers, code):
+    loc = await create_location(client, headers, code=f"L-{code}")
+    ins = await create_instructor(client, headers)
+    return await create_batch(client, headers, loc["id"], ins["id"], code=code)
+
+
+async def test_client_cannot_join_a_second_batch(client, headers_a):
+    b1 = await _open_batch(client, headers_a, "OB-1")
+    b2 = await _open_batch(client, headers_a, "OB-2")
+    rec = await create_client_rec(client, headers_a)
+    assert (await _enroll(client, headers_a, rec["id"], b1["id"])).status_code == 201
+    res = await _enroll(client, headers_a, rec["id"], b2["id"])
+    assert res.status_code == 409
+    assert "only one batch" in res.json()["detail"]
+
+
+async def test_remove_from_batch_then_can_join_another(client, headers_a):
+    b1 = await _open_batch(client, headers_a, "RM-1")
+    b2 = await _open_batch(client, headers_a, "RM-2")
+    rec = await create_client_rec(client, headers_a)
+    e1 = (await _enroll(client, headers_a, rec["id"], b1["id"])).json()
+
+    # remove from b1
+    res = await client.delete(f"/api/enrollments/{e1['id']}", headers=headers_a)
+    assert res.status_code == 204
+    # now free to join b2
+    assert (await _enroll(client, headers_a, rec["id"], b2["id"])).status_code == 201
+
+
+async def test_remove_enrollment_is_org_scoped(client, headers_a, headers_b):
+    b = await _open_batch(client, headers_a, "RM-ORG")
+    rec = await create_client_rec(client, headers_a)
+    e = (await _enroll(client, headers_a, rec["id"], b["id"])).json()
+    assert (await client.delete(f"/api/enrollments/{e['id']}", headers=headers_b)).status_code == 404
+    assert (await client.delete(f"/api/enrollments/{e['id']}", headers=headers_a)).status_code == 204

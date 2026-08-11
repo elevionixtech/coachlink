@@ -26,6 +26,14 @@ export default function BatchDetail() {
     queryFn: async () => (await api.get<EnrollmentOut[]>(`/batches/${id}/roster`)).data,
   })
 
+  const remove = useMutation({
+    mutationFn: async (enrollmentId: string) => api.delete(`/enrollments/${enrollmentId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['roster', id] })
+      queryClient.invalidateQueries({ queryKey: ['batch', id] })
+    },
+  })
+
   if (isLoading || !batch) return <Spinner />
 
   return (
@@ -107,7 +115,7 @@ export default function BatchDetail() {
       {!roster?.length ? (
         <Panel><EmptyState title="No one enrolled yet" action={<Button intent="accent" onClick={() => setEnrolling(true)}>Enroll client</Button>} /></Panel>
       ) : (
-        <Table head={['Client', 'Start date', 'Enrolled on']}>
+        <Table head={['Client', 'Start date', 'Enrolled on', '']}>
           {roster.map((e) => (
             <tr key={e.id}>
               <td className="px-4 py-2.5">
@@ -117,6 +125,17 @@ export default function BatchDetail() {
               </td>
               <td className="px-4 py-2.5 font-mono text-xs">{fullDate(e.start_date)}</td>
               <td className="px-4 py-2.5 font-mono text-xs">{fullDate(e.created_at.slice(0, 10))}</td>
+              <td className="px-4 py-2.5 text-right">
+                <Button
+                  intent="danger"
+                  className="!px-2 !py-1 text-xs"
+                  onClick={() => {
+                    if (confirm(`Remove ${e.client_name} from this batch?`)) remove.mutate(e.id)
+                  }}
+                >
+                  Remove
+                </Button>
+              </td>
             </tr>
           ))}
         </Table>

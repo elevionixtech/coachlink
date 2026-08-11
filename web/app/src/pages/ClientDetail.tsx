@@ -862,16 +862,27 @@ function EnrollmentsTab({ clientId }: { clientId: string }) {
     onError: (e) => setError(errorMessage(e)),
   })
 
+  const remove = useMutation({
+    mutationFn: async (enrollmentId: string) => api.delete(`/enrollments/${enrollmentId}`),
+    onSuccess: () => {
+      setWarning(null)
+      queryClient.invalidateQueries({ queryKey: ['client-enrollments', clientId] })
+    },
+  })
+
+  // One batch per client, so once enrolled the Enrol button is hidden until removed.
+  const enrolled = !!enrollments?.length
+
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <span className="font-mono text-xs text-orange-deep">{warning}</span>
-        <Button intent="accent" onClick={() => setAdding(true)}>Enroll in batch</Button>
+        {!enrolled && <Button intent="accent" onClick={() => setAdding(true)}>Enroll in batch</Button>}
       </div>
       {!enrollments?.length ? (
         <Panel><EmptyState title="No enrollments" /></Panel>
       ) : (
-        <Table head={['Batch', 'Code', 'Start date']}>
+        <Table head={['Batch', 'Code', 'Start date', '']}>
           {enrollments.map((e) => (
             <tr key={e.id}>
               <td className="px-4 py-2.5">
@@ -881,6 +892,17 @@ function EnrollmentsTab({ clientId }: { clientId: string }) {
               </td>
               <td className="px-4 py-2.5 font-mono text-xs">{e.batch_code}</td>
               <td className="px-4 py-2.5 font-mono text-xs">{fullDate(e.start_date)}</td>
+              <td className="px-4 py-2.5 text-right">
+                <Button
+                  intent="danger"
+                  className="!px-2 !py-1 text-xs"
+                  onClick={() => {
+                    if (confirm(`Remove from ${e.batch_name}?`)) remove.mutate(e.id)
+                  }}
+                >
+                  Remove
+                </Button>
+              </td>
             </tr>
           ))}
         </Table>
