@@ -67,6 +67,12 @@ export default function BatchDetail() {
           </div>
         </div>
         <div>
+          <div className="eyebrow">Days</div>
+          <div className="mt-0.5 text-sm">
+            {batch.days_of_week.length ? batch.days_of_week.join(', ') : '—'}
+          </div>
+        </div>
+        <div>
           <div className="eyebrow">Description</div>
           <div className="mt-0.5 text-sm">{batch.description || '—'}</div>
         </div>

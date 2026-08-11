@@ -156,3 +156,46 @@ async def test_eligible_clients_is_org_scoped(client, headers_a, headers_b):
     assert (
         await client.get(f"/api/batches/{batch['id']}/eligible-clients", headers=headers_b)
     ).status_code == 404
+
+
+# ---------------------------------------------------------------- days of week
+
+
+async def test_batch_days_of_week(client, headers_a):
+    loc = await create_location(client, headers_a, code="DOW")
+    ins = await create_instructor(client, headers_a)
+    batch = await create_batch(
+        client, headers_a, loc["id"], ins["id"], code="DOW-1",
+        days_of_week=["Mon", "Wed", "Fri"],
+    )
+    assert batch["days_of_week"] == ["Mon", "Wed", "Fri"]
+
+    got = (await client.get(f"/api/batches/{batch['id']}", headers=headers_a)).json()
+    assert got["days_of_week"] == ["Mon", "Wed", "Fri"]
+
+    res = await client.patch(
+        f"/api/batches/{batch['id']}", json={"days_of_week": ["Tue", "Thu"]}, headers=headers_a
+    )
+    assert res.json()["days_of_week"] == ["Tue", "Thu"]
+
+
+async def test_batch_days_default_empty(client, headers_a):
+    loc = await create_location(client, headers_a, code="DOW2")
+    ins = await create_instructor(client, headers_a)
+    batch = await create_batch(client, headers_a, loc["id"], ins["id"], code="DOW-2")
+    assert batch["days_of_week"] == []
+
+
+async def test_batch_invalid_day_rejected(client, headers_a):
+    loc = await create_location(client, headers_a, code="DOW3")
+    ins = await create_instructor(client, headers_a)
+    res = await client.post(
+        "/api/batches",
+        json={
+            "name": "X", "code": "DOW-3", "status": "active",
+            "location_id": loc["id"], "instructor_id": ins["id"],
+            "days_of_week": ["Funday"],
+        },
+        headers=headers_a,
+    )
+    assert res.status_code == 422

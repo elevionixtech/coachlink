@@ -117,6 +117,16 @@ class CapacityPolicy(enum.StrEnum):
     block = "block"
 
 
+class Weekday(enum.StrEnum):
+    mon = "Mon"
+    tue = "Tue"
+    wed = "Wed"
+    thu = "Thu"
+    fri = "Fri"
+    sat = "Sat"
+    sun = "Sun"
+
+
 class PricingMode(enum.StrEnum):
     """How to read ServicePricingOption.value (§3.7).
 
@@ -430,6 +440,8 @@ class Batch(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     start_time: Mapped[time | None] = mapped_column(sa.Time)
     end_time: Mapped[time | None] = mapped_column(sa.Time)
     description: Mapped[str | None] = mapped_column(sa.Text)
+    # Which days of the week the batch runs, e.g. ["Mon", "Wed", "Fri"]. Empty = unset.
+    days_of_week: Mapped[list[str]] = mapped_column(JSONVariant, default=list, nullable=False)
 
     location: Mapped[Location] = relationship(lazy="joined")
     instructor: Mapped[Instructor] = relationship(lazy="joined")

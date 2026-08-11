@@ -48,3 +48,4 @@ export const NOTE_CHANNELS = ['Call', 'WhatsApp', 'Email', 'In person'] as const
 export const LOCATION_TYPES = ['Studio', 'Center', 'Branch', 'Campus', 'Clinic', 'Other'] as const
 export const DELIVERABLE_UNITS = ['sessions', 'classes', 'hours', 'days'] as const
 export const BATCH_STATUSES = ['active', 'inactive', 'upcoming', 'completed'] as const
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const

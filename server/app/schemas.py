@@ -20,6 +20,7 @@ from app.models import (
     Role,
     ServiceType,
     SubscriptionStatus,
+    Weekday,
 )
 
 T = TypeVar("T")
@@ -509,6 +510,8 @@ class BatchIn(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     description: str | None = None
+    # Days of the week the batch runs, e.g. ["Mon", "Wed", "Fri"].
+    days_of_week: list[Weekday] = []
     # Services this batch delivers; empty leaves the batch open to any client (§5.5).
     service_ids: list[uuid.UUID] = []
 
@@ -524,6 +527,7 @@ class BatchPatch(BaseModel):
     start_time: time | None = None
     end_time: time | None = None
     description: str | None = None
+    days_of_week: list[Weekday] | None = None
     service_ids: list[uuid.UUID] | None = None
 
 
@@ -541,6 +545,7 @@ class BatchOut(ORMModel):
     start_time: time | None
     end_time: time | None
     description: str | None
+    days_of_week: list[Weekday] = []
     services: list[ServiceRef] = []
     enrolled_count: int = 0
     capacity: int | None = None

@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { BatchIn, BatchOut, EnrollmentOut, InstructorOut, LocationIn, LocationOut, Page, ServiceOut } from '../api/types'
-import { BATCH_STATUSES, LOCATION_TYPES } from '../api/types'
+import { BATCH_STATUSES, LOCATION_TYPES, WEEKDAYS } from '../api/types'
 import { fullDate, shortTime } from '../lib/format'
 import {
   Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
@@ -172,6 +172,7 @@ export function BatchForm({
     end_time: initial?.end_time ?? null,
     description: initial?.description ?? '',
     service_ids: initial?.services.map((s) => s.id) ?? [],
+    days_of_week: initial?.days_of_week ?? [],
   })
   const [error, setError] = useState<string | null>(null)
   const set = (k: keyof BatchIn, v: unknown) => setForm((f) => ({ ...f, [k]: v }))
@@ -189,6 +190,9 @@ export function BatchForm({
     queryFn: async () => (await api.get<Page<ServiceOut>>('/services', { params: { limit: 200 } })).data,
   })
   const serviceIds = form.service_ids ?? []
+  const days = form.days_of_week ?? []
+  const toggleDay = (d: string, on: boolean) =>
+    set('days_of_week', on ? [...days, d] : days.filter((x) => x !== d))
   const toggleService = (id: string, on: boolean) =>
     set('service_ids', on ? [...serviceIds, id] : serviceIds.filter((s) => s !== id))
 
@@ -232,6 +236,28 @@ export function BatchForm({
           <Field label="End time" type="time" value={form.end_time ?? ''} onChange={(e) => set('end_time', e.target.value || null)} />
         </div>
         <Field label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} />
+        <div>
+          <span className="eyebrow">Days of the week</span>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {WEEKDAYS.map((d) => {
+              const on = days.includes(d)
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => toggleDay(d, !on)}
+                  className={`rounded-[4px] px-3 py-1.5 text-sm cursor-pointer border transition-colors ${
+                    on
+                      ? 'border-brown-deep bg-brown-deep text-yellow-pale'
+                      : 'border-gold-soft bg-white text-brown hover:border-gold'
+                  }`}
+                >
+                  {d}
+                </button>
+              )
+            })}
+          </div>
+        </div>
         <div>
           <span className="eyebrow">Services delivered</span>
           <p className="mt-0.5 mb-2 text-xs text-brown-mid">

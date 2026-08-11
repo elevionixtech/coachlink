@@ -584,7 +584,13 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Edit Subscription
+         * @description Edit a subscription's service, start date, pricing option or discount. Affects
+         *     future invoice generation only — already-issued invoices keep their stored amount
+         *     (§3.7). Same option-eligibility rule as creating one.
+         */
+        put: operations["edit_subscription_api_subscriptions__subscription_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -836,6 +842,11 @@ export interface components {
             /** Description */
             description?: string | null;
             /**
+             * Days Of Week
+             * @default []
+             */
+            days_of_week: components["schemas"]["Weekday"][];
+            /**
              * Service Ids
              * @default []
              */
@@ -878,6 +889,11 @@ export interface components {
             /** Description */
             description: string | null;
             /**
+             * Days Of Week
+             * @default []
+             */
+            days_of_week: components["schemas"]["Weekday"][];
+            /**
              * Services
              * @default []
              */
@@ -916,6 +932,8 @@ export interface components {
             end_time?: string | null;
             /** Description */
             description?: string | null;
+            /** Days Of Week */
+            days_of_week?: components["schemas"]["Weekday"][] | null;
             /** Service Ids */
             service_ids?: string[] | null;
         };
@@ -2217,6 +2235,11 @@ export interface components {
             /** Context */
             ctx?: Record<string, never>;
         };
+        /**
+         * Weekday
+         * @enum {string}
+         */
+        Weekday: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
     };
     responses: never;
     parameters: never;
@@ -3997,6 +4020,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EnrollmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    edit_subscription_api_subscriptions__subscription_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionOut"];
                 };
             };
             /** @description Validation Error */
