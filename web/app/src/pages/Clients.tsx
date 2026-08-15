@@ -156,7 +156,7 @@ export default function Clients() {
           />
         </Panel>
       ) : (
-        <Table head={['Name', 'Contact', 'Stage', 'Preferences']}>
+        <Table head={['Name', 'Contact', 'Stage', 'Subscriptions', 'Batch', 'Preferences']}>
           {data.items.map((c) => (
             <tr key={c.id}>
               <td className="px-4 py-2.5">
@@ -170,6 +170,23 @@ export default function Clients() {
                 <div className="text-brown-mid">{c.email ?? ''}</div>
               </td>
               <td className="px-4 py-2.5"><Badge tone={statusTone(c.lifecycle_stage)}>{c.lifecycle_stage}</Badge></td>
+              <td className="px-4 py-2.5 text-xs">
+                {c.active_services.length ? (
+                  c.active_services.join(', ')
+                ) : (
+                  <span className="text-brown-mid">—</span>
+                )}
+              </td>
+              <td className="px-4 py-2.5 text-xs">
+                {c.batch_name ? (
+                  <>
+                    {c.batch_name}
+                    {c.batch_code && <span className="font-mono text-brown-mid"> · {c.batch_code}</span>}
+                  </>
+                ) : (
+                  <span className="text-brown-mid">—</span>
+                )}
+              </td>
               <td className="px-4 py-2.5 text-xs text-orange-deep">
                 {[c.do_not_contact && 'No contact', c.do_not_email && 'No email', c.do_not_call && 'No calls']
                   .filter(Boolean)

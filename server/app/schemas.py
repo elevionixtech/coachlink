@@ -388,6 +388,11 @@ class ClientOut(ORMModel):
     family_link_name: str | None = None
     linked_by: list["ClientRef"] = []
     created_at: datetime
+    # Populated only on the clients list summary — service names of the client's active
+    # subscriptions and the batch they are enrolled in (§5.5).
+    active_services: list[str] = []
+    batch_name: str | None = None
+    batch_code: str | None = None
 
 
 class ClientRef(ORMModel):

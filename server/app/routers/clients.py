@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 from app.billing import subscription_amount
 from app.deps import OrgUser, SessionDep
 from app.models import (
+    Batch,
     Client,
     ContactNote,
     Enrollment,
@@ -16,6 +17,7 @@ from app.models import (
     PricingOption,
     Service,
     Subscription,
+    SubscriptionStatus,
 )
 from app.routers.common import (
     PAGE_LIMIT_DEFAULT,
@@ -95,10 +97,48 @@ async def list_clients(
     if lifecycle_stage:
         stmt = stmt.where(Client.lifecycle_stage == lifecycle_stage)
     rows = (await session.scalars(stmt)).all()
-    return Page(
-        items=[ClientOut.model_validate(c) for c in rows[:limit]],
-        next_cursor=next_cursor(cursor, limit, len(rows)),
+    page = rows[:limit]
+    services, batches = await _client_summaries(session, [c.id for c in page])
+    items = []
+    for c in page:
+        out = ClientOut.model_validate(c)
+        out.active_services = services.get(c.id, [])
+        batch = batches.get(c.id)
+        if batch:
+            out.batch_name, out.batch_code = batch
+        items.append(out)
+    return Page(items=items, next_cursor=next_cursor(cursor, limit, len(rows)))
+
+
+async def _client_summaries(
+    session: SessionDep, client_ids: list[uuid.UUID]
+) -> tuple[dict[uuid.UUID, list[str]], dict[uuid.UUID, tuple[str, str]]]:
+    """Bulk-load, for a page of clients, the service names of their active
+    subscriptions and the batch (name, code) each is enrolled in — one query each
+    rather than per-row, for the clients list summary. A client is in at most one
+    batch (§5.5)."""
+    if not client_ids:
+        return {}, {}
+    sub_rows = await session.execute(
+        sa.select(Subscription.client_id, Service.name)
+        .join(Service, Service.id == Subscription.service_id)
+        .where(
+            Subscription.client_id.in_(client_ids),
+            Subscription.status == SubscriptionStatus.active,
+        )
+        .order_by(Service.name)
     )
+    services: dict[uuid.UUID, list[str]] = {}
+    for cid, name in sub_rows.all():
+        services.setdefault(cid, []).append(name)
+
+    batch_rows = await session.execute(
+        sa.select(Enrollment.client_id, Batch.name, Batch.code)
+        .join(Batch, Batch.id == Enrollment.batch_id)
+        .where(Enrollment.client_id.in_(client_ids))
+    )
+    batches = {cid: (name, code) for cid, name, code in batch_rows.all()}
+    return services, batches
 
 
 @router.post("", status_code=201)

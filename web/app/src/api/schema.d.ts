@@ -1077,6 +1077,15 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Active Services
+             * @default []
+             */
+            active_services: string[];
+            /** Batch Name */
+            batch_name?: string | null;
+            /** Batch Code */
+            batch_code?: string | null;
         };
         /** ClientPatch */
         ClientPatch: {

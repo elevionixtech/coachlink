@@ -134,6 +134,38 @@ async def test_soft_delete_hides_but_keeps_row(client, headers_a):
     assert service["id"] not in {s["id"] for s in res.json()["items"]}
 
 
+async def test_clients_list_shows_subscriptions_and_batch(client, headers_a):
+    """The clients list summarises each client's active subscriptions and their batch."""
+    instructor = await create_instructor(client, headers_a)
+    location = await create_location(client, headers_a)
+    batch = await create_batch(client, headers_a, location["id"], instructor["id"])
+    svc = await create_service(client, headers_a, sku="SUM-1", rate="3000")
+    rec = await create_client_rec(client, headers_a, name="Summed")
+    await client.post(
+        f"/api/clients/{rec['id']}/subscriptions",
+        json={"service_id": svc["id"], "start_date": "2026-07-01"},
+        headers=headers_a,
+    )
+    await client.post(
+        "/api/enrollments",
+        json={"client_id": rec["id"], "batch_id": batch["id"], "start_date": "2026-07-01"},
+        headers=headers_a,
+    )
+
+    listed = (await client.get("/api/clients?q=Summed", headers=headers_a)).json()["items"]
+    assert len(listed) == 1
+    row = listed[0]
+    assert row["active_services"] == [svc["name"]]
+    assert row["batch_name"] == batch["name"]
+    assert row["batch_code"] == batch["code"]
+
+    # A client with no subscription or enrolment reports empty summaries.
+    await create_client_rec(client, headers_a, name="Bare")
+    listed = (await client.get("/api/clients?q=Bare", headers=headers_a)).json()["items"]
+    assert listed[0]["active_services"] == []
+    assert listed[0]["batch_name"] is None
+
+
 async def test_search_and_lifecycle_filter(client, headers_a):
     await create_client_rec(client, headers_a, name="Asha Rao", phone="98860")
     await create_client_rec(client, headers_a, name="Vikram Iyer")
