@@ -118,7 +118,7 @@ async def test_cross_org_reference_ids_rejected_as_404(client, headers_a, header
 
     res = await client.patch(
         f"/api/clients/{client_a['id']}",
-        json={"account_type": "Family", "family_link_id": client_b["id"]},
+        json={"family_link_id": client_b["id"]},
         headers=headers_a,
     )
     assert res.status_code == 404

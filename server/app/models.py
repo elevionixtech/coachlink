@@ -79,12 +79,6 @@ class LifecycleStage(enum.StrEnum):
     lapsed = "Lapsed"
 
 
-class AccountType(enum.StrEnum):
-    individual = "Individual"
-    corporate = "Corporate"
-    family = "Family"
-
-
 class SubscriptionStatus(enum.StrEnum):
     active = "active"
     ended = "ended"
@@ -345,9 +339,6 @@ class Client(TimestampMixin, OrgMixin, ArchivedMixin, Base):
     address: Mapped[str | None] = mapped_column(sa.Text)
     work: Mapped[str | None] = mapped_column(sa.Text)
     description: Mapped[str | None] = mapped_column(sa.Text)
-    account_type: Mapped[AccountType] = mapped_column(
-        str_enum(AccountType, "account_type"), default=AccountType.individual, nullable=False
-    )
     company_name: Mapped[str | None] = mapped_column(sa.Text)
     gstin: Mapped[str | None] = mapped_column(sa.Text)
     company_contact: Mapped[str | None] = mapped_column(sa.Text)

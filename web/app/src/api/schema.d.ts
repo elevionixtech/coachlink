@@ -738,11 +738,6 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * AccountType
-         * @enum {string}
-         */
-        AccountType: "Individual" | "Corporate" | "Family";
-        /**
          * AdHocInvoiceIn
          * @description A one-off invoice (§3.8), not from a subscription — the amount and line are
          *     entered by hand. Raised either against an existing client (client_id) or a
@@ -1018,8 +1013,6 @@ export interface components {
             work?: string | null;
             /** Description */
             description?: string | null;
-            /** @default Individual */
-            account_type: components["schemas"]["AccountType"];
             /** Company Name */
             company_name?: string | null;
             /** Gstin */
@@ -1064,7 +1057,6 @@ export interface components {
             work: string | null;
             /** Description */
             description: string | null;
-            account_type: components["schemas"]["AccountType"];
             /** Company Name */
             company_name: string | null;
             /** Gstin */
@@ -1116,7 +1108,6 @@ export interface components {
             work?: string | null;
             /** Description */
             description?: string | null;
-            account_type?: components["schemas"]["AccountType"] | null;
             /** Company Name */
             company_name?: string | null;
             /** Gstin */

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { ClientIn, ClientOut, Page } from '../api/types'
-import { ACCOUNT_TYPES, GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
+import { GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
 import {
   Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
   Spinner, Table, TextArea, statusTone,
@@ -28,7 +28,6 @@ export function ClientForm({
     joining_date: initial?.joining_date ?? null,
     lead_source: initial?.lead_source ?? null,
     lifecycle_stage: initial?.lifecycle_stage ?? 'Lead',
-    account_type: initial?.account_type ?? 'Individual',
     company_name: initial?.company_name ?? '',
     gstin: initial?.gstin ?? '',
     company_contact: initial?.company_contact ?? '',
@@ -79,18 +78,11 @@ export function ClientForm({
           <SelectField label="Lifecycle stage" value={form.lifecycle_stage ?? 'Lead'} onChange={(e) => set('lifecycle_stage', e.target.value)}>
             {LIFECYCLE_STAGES.map((s) => <option key={s}>{s}</option>)}
           </SelectField>
-          <SelectField label="Account type" value={form.account_type ?? 'Individual'} onChange={(e) => set('account_type', e.target.value)}>
-            {ACCOUNT_TYPES.map((t) => <option key={t}>{t}</option>)}
-          </SelectField>
           <Field label="Work" value={form.work ?? ''} onChange={(e) => set('work', e.target.value)} />
           <Field label="GSTIN" value={form.gstin ?? ''} onChange={(e) => set('gstin', e.target.value)} className="[&>input]:font-mono" hint="GST number, if the client has one" />
+          <Field label="Company name" value={form.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} />
+          <Field label="Company contact" value={form.company_contact ?? ''} onChange={(e) => set('company_contact', e.target.value)} />
         </div>
-        {form.account_type === 'Corporate' && (
-          <div className="grid grid-cols-2 gap-4 rounded-lg border border-gold-soft bg-white/50 p-3">
-            <Field label="Company name" value={form.company_name ?? ''} onChange={(e) => set('company_name', e.target.value)} />
-            <Field label="Company contact" value={form.company_contact ?? ''} onChange={(e) => set('company_contact', e.target.value)} />
-          </div>
-        )}
         <Field label="Address" value={form.address ?? ''} onChange={(e) => set('address', e.target.value)} />
         <TextArea label="Description" value={form.description ?? ''} onChange={(e) => set('description', e.target.value)} />
         <div className="flex gap-6">
@@ -164,7 +156,7 @@ export default function Clients() {
           />
         </Panel>
       ) : (
-        <Table head={['Name', 'Contact', 'Stage', 'Account', 'Preferences']}>
+        <Table head={['Name', 'Contact', 'Stage', 'Preferences']}>
           {data.items.map((c) => (
             <tr key={c.id}>
               <td className="px-4 py-2.5">
@@ -178,7 +170,6 @@ export default function Clients() {
                 <div className="text-brown-mid">{c.email ?? ''}</div>
               </td>
               <td className="px-4 py-2.5"><Badge tone={statusTone(c.lifecycle_stage)}>{c.lifecycle_stage}</Badge></td>
-              <td className="px-4 py-2.5 text-xs">{c.account_type}</td>
               <td className="px-4 py-2.5 text-xs text-orange-deep">
                 {[c.do_not_contact && 'No contact', c.do_not_email && 'No email', c.do_not_call && 'No calls']
                   .filter(Boolean)

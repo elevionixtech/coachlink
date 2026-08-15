@@ -11,7 +11,7 @@ import {
 } from '../components/ui'
 import { ClientForm } from './Clients'
 
-const TABS = ['Details', 'Corporate & family', 'Notes', 'Invoices', 'Subscriptions', 'Enrollments'] as const
+const TABS = ['Details', 'Company & family', 'Notes', 'Invoices', 'Subscriptions', 'Enrollments'] as const
 type Tab = (typeof TABS)[number]
 
 function Item({ label, children }: { label: string; children: React.ReactNode }) {
@@ -114,15 +114,12 @@ export default function ClientDetail() {
         </Panel>
       )}
 
-      {tab === 'Corporate & family' && (
+      {tab === 'Company & family' && (
         <Panel className="p-5 space-y-5">
-          <Item label="Account type">{client.account_type}</Item>
-          {client.account_type === 'Corporate' && (
-            <div className="grid grid-cols-2 gap-4">
-              <Item label="Company">{client.company_name}</Item>
-              <Item label="Company contact">{client.company_contact}</Item>
-            </div>
-          )}
+          <div className="grid grid-cols-2 gap-4">
+            <Item label="Company">{client.company_name}</Item>
+            <Item label="Company contact">{client.company_contact}</Item>
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <Item label="Family link">
               {client.family_link_id ? (

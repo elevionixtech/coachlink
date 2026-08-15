@@ -42,7 +42,6 @@ export const CANCELLATION_POLICIES = ['Non-Refundable', 'Flexible', 'Moderate', 
 export const PRICING_MODES = ['discount_pct', 'fixed_rate'] as const
 export const GENDERS = ['Female', 'Male', 'Non-binary', 'Prefer not to say'] as const
 export const LIFECYCLE_STAGES = ['Lead', 'Prospect', 'Customer', 'Lapsed'] as const
-export const ACCOUNT_TYPES = ['Individual', 'Corporate', 'Family'] as const
 export const LEAD_SOURCES = ['Walk-in', 'Referral', 'Instagram', 'Website', 'Corporate tie-up', 'Event', 'Other'] as const
 export const NOTE_CHANNELS = ['Call', 'WhatsApp', 'Email', 'In person'] as const
 export const LOCATION_TYPES = ['Studio', 'Center', 'Branch', 'Campus', 'Clinic', 'Other'] as const

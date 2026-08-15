@@ -1,4 +1,4 @@
-"""Domain rules: corporate/family accounts (§5.3), notes, capacity (§5.5),
+"""Domain rules: company/family fields (§5.3), notes, capacity (§5.5),
 enrollment dedupe, soft deletes, search."""
 
 from tests.conftest import (
@@ -10,43 +10,42 @@ from tests.conftest import (
 )
 
 
-async def test_corporate_fields_cleared_on_switch_away(client, headers_a):
+async def test_company_and_gstin_fields_are_plain(client, headers_a):
     rec = await create_client_rec(
         client,
         headers_a,
-        account_type="Corporate",
         company_name="Acme",
         gstin="27AAA",
         company_contact="Ravi",
     )
     assert rec["company_name"] == "Acme"
+    # These are ordinary fields — an unrelated edit leaves them intact.
     res = await client.patch(
-        f"/api/clients/{rec['id']}", json={"account_type": "Individual"}, headers=headers_a
+        f"/api/clients/{rec['id']}", json={"work": "Analyst"}, headers=headers_a
     )
     body = res.json()
-    # Company name/contact are corporate-only and cleared; GSTIN is a general field kept.
-    assert body["company_name"] is None and body["company_contact"] is None
+    assert body["company_name"] == "Acme" and body["company_contact"] == "Ravi"
     assert body["gstin"] == "27AAA"
 
 
 async def test_family_link_and_reverse_link(client, headers_a):
     anchor = await create_client_rec(client, headers_a, name="Anchor")
     member = await create_client_rec(
-        client, headers_a, name="Member", account_type="Family", family_link_id=anchor["id"]
+        client, headers_a, name="Member", family_link_id=anchor["id"]
     )
     assert member["family_link_name"] == "Anchor"
     # Reverse link shown on the linked member's profile.
     res = await client.get(f"/api/clients/{anchor['id']}", headers=headers_a)
     assert [x["name"] for x in res.json()["linked_by"]] == ["Member"]
-    # Switching away from Family clears the link.
+    # Clearing the link removes it.
     res = await client.patch(
-        f"/api/clients/{member['id']}", json={"account_type": "Individual"}, headers=headers_a
+        f"/api/clients/{member['id']}", json={"family_link_id": None}, headers=headers_a
     )
     assert res.json()["family_link_id"] is None
     # Self-link rejected.
     res = await client.patch(
         f"/api/clients/{anchor['id']}",
-        json={"account_type": "Family", "family_link_id": anchor["id"]},
+        json={"family_link_id": anchor["id"]},
         headers=headers_a,
     )
     assert res.status_code == 422

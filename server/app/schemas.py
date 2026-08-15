@@ -6,7 +6,6 @@ from typing import TypeVar
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models import (
-    AccountType,
     BatchStatus,
     BillingInterval,
     CancellationPolicy,
@@ -337,7 +336,6 @@ class ClientIn(BaseModel):
     address: str | None = None
     work: str | None = None
     description: str | None = None
-    account_type: AccountType = AccountType.individual
     company_name: str | None = None
     gstin: str | None = None
     company_contact: str | None = None
@@ -360,7 +358,6 @@ class ClientPatch(BaseModel):
     address: str | None = None
     work: str | None = None
     description: str | None = None
-    account_type: AccountType | None = None
     company_name: str | None = None
     gstin: str | None = None
     company_contact: str | None = None
@@ -384,7 +381,6 @@ class ClientOut(ORMModel):
     address: str | None
     work: str | None
     description: str | None
-    account_type: AccountType
     company_name: str | None
     gstin: str | None
     company_contact: str | None

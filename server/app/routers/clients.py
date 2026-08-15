@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException
 from app.billing import subscription_amount
 from app.deps import OrgUser, SessionDep
 from app.models import (
-    AccountType,
     Client,
     ContactNote,
     Enrollment,
@@ -51,17 +50,6 @@ async def _resolve_family_link(
     if self_id is not None and link_id == self_id:
         raise HTTPException(422, detail="A client cannot be family-linked to themselves")
     return await get_owned_or_404(session, Client, link_id, org_id)
-
-
-def _apply_account_type_rules(data: dict) -> dict:
-    """Company name/contact exist only on Corporate and the family link only on Family;
-    GSTIN is a general client field (§5.3)."""
-    if data.get("account_type") != AccountType.corporate:
-        data["company_name"] = None
-        data["company_contact"] = None
-    if data.get("account_type") != AccountType.family:
-        data["family_link_id"] = None
-    return data
 
 
 async def _client_out(session: SessionDep, client: Client) -> ClientOut:
@@ -115,7 +103,7 @@ async def list_clients(
 
 @router.post("", status_code=201)
 async def create_client(body: ClientIn, ctx: OrgUser, session: SessionDep) -> ClientOut:
-    data = _apply_account_type_rules(body.model_dump())
+    data = body.model_dump()
     if data.get("family_link_id"):
         await _resolve_family_link(session, ctx.org.id, data["family_link_id"], None)
     client = Client(org_id=ctx.org.id, **data)
@@ -136,12 +124,6 @@ async def update_client(
 ) -> ClientOut:
     client = await get_owned_or_404(session, Client, client_id, ctx.org.id)
     data = body.model_dump(exclude_unset=True)
-    effective_type = data.get("account_type", client.account_type)
-    if effective_type != AccountType.corporate:
-        data["company_name"] = None
-        data["company_contact"] = None
-    if effective_type != AccountType.family and "account_type" in data:
-        data["family_link_id"] = None
     if data.get("family_link_id"):
         await _resolve_family_link(session, ctx.org.id, data["family_link_id"], client.id)
     for key, value in data.items():
