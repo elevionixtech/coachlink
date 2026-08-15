@@ -142,8 +142,7 @@ export default function ClientDetail() {
             </Item>
           </div>
           <p className="text-xs text-brown-mid">
-            Set the account type and family link from “Edit details”. Switching away from Corporate
-            clears company fields; switching away from Family clears the link.
+            Set the company details and family link from “Edit details”.
           </p>
         </Panel>
       )}
