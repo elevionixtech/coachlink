@@ -204,30 +204,18 @@ async def add_note(
 # ---------------------------------------------------------------- subscriptions
 
 
-async def _check_option_allowed(
+async def _check_option_priced(
     session: SessionDep,
     org_id: uuid.UUID,
-    client: Client,
     service: Service,
     option_id: uuid.UUID,
 ) -> None:
-    """A subscription may only use an option the service prices and the client qualifies
-    for (§3.7). Eligibility is enforced here, not merely hidden in the UI."""
+    """A subscription may only use a pricing option the service actually prices (§3.7).
+    Any option a service offers is available to any client — the operator chooses."""
     option = await get_owned_or_404(session, PricingOption, option_id, org_id)
-
     if not any(p.pricing_option_id == option_id for p in service.pricing_options):
         raise HTTPException(
             422, detail=f"Service '{service.name}' has no price for '{option.name}'"
-        )
-    # An empty applies_to means the option is open to every account type.
-    if option.applies_to and client.account_type not in option.applies_to:
-        allowed = ", ".join(option.applies_to)
-        raise HTTPException(
-            422,
-            detail=(
-                f"'{option.name}' is only available to {allowed} clients — "
-                f"{client.name} is {client.account_type}"
-            ),
         )
 
 
@@ -265,9 +253,7 @@ async def create_subscription(
     service = await get_owned_or_404(session, Service, body.service_id, ctx.org.id)
     data = body.model_dump()
     if body.pricing_option_id is not None:
-        await _check_option_allowed(
-            session, ctx.org.id, client, service, body.pricing_option_id
-        )
+        await _check_option_priced(session, ctx.org.id, service, body.pricing_option_id)
         # The option sets the price outright, so never store a discount that is ignored
         # at invoice time (§3.7) — same normalisation idiom as _normalise_account_fields.
         data["discount_pct"] = Decimal("0")

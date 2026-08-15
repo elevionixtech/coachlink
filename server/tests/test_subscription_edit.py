@@ -1,6 +1,5 @@
 """Editing a subscription's service, discount, or pricing option (§3.7)."""
 
-from datetime import date
 
 from tests.conftest import create_client_rec, create_service
 

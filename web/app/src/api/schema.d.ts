@@ -545,9 +545,10 @@ export interface paths {
         };
         /**
          * Eligible Clients
-         * @description Clients who may still enrol in this batch — those with an active subscription to
-         *     one of its services (§5.5), minus anyone already enrolled. A batch with no listed
-         *     service is open, so every not-yet-enrolled client qualifies.
+         * @description Clients who may enrol in this batch — those with an active subscription to one of
+         *     its services (§5.5), minus anyone already in a batch. A client can be in only one
+         *     batch, so anyone already enrolled anywhere is excluded; a batch with no listed
+         *     service is open to every unenrolled client.
          */
         get: operations["eligible_clients_api_batches__batch_id__eligible_clients_get"];
         put?: never;
@@ -571,6 +572,26 @@ export interface paths {
         /** Create Enrollment */
         post: operations["create_enrollment_api_enrollments_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/enrollments/{enrollment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Enrollment
+         * @description Remove a client from a batch (§5.5). Tenancy walks up through the client.
+         */
+        delete: operations["remove_enrollment_api_enrollments__enrollment_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1936,11 +1957,6 @@ export interface components {
             /** Description */
             description?: string | null;
             /**
-             * Applies To
-             * @default []
-             */
-            applies_to: components["schemas"]["AccountType"][];
-            /**
              * Sort Order
              * @default 0
              */
@@ -1957,8 +1973,6 @@ export interface components {
             name: string;
             /** Description */
             description: string | null;
-            /** Applies To */
-            applies_to: components["schemas"]["AccountType"][];
             /** Sort Order */
             sort_order: number;
             /**
@@ -1973,8 +1987,6 @@ export interface components {
             name?: string | null;
             /** Description */
             description?: string | null;
-            /** Applies To */
-            applies_to?: components["schemas"]["AccountType"][] | null;
             /** Sort Order */
             sort_order?: number | null;
         };
@@ -4021,6 +4033,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EnrollmentOut"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_enrollment_api_enrollments__enrollment_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                enrollment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -154,7 +154,7 @@ export default function ClientDetail() {
       {tab === 'Notes' && <NotesTab clientId={client.id} />}
       {tab === 'Invoices' && <InvoicesTab clientId={client.id} />}
       {tab === 'Subscriptions' && (
-        <SubscriptionsTab clientId={client.id} accountType={client.account_type} />
+        <SubscriptionsTab clientId={client.id} />
       )}
       {tab === 'Enrollments' && <EnrollmentsTab clientId={client.id} />}
 
@@ -637,13 +637,7 @@ function PaymentModal({
 
 // ---------------------------------------------------------------- subscriptions
 
-function SubscriptionsTab({
-  clientId,
-  accountType,
-}: {
-  clientId: string
-  accountType: ClientOut['account_type']
-}) {
+function SubscriptionsTab({ clientId }: { clientId: string }) {
   const queryClient = useQueryClient()
   // null = closed; 'new' = create; a subscription = edit that one.
   const [editing, setEditing] = useState<SubscriptionOut | 'new' | null>(null)
@@ -689,12 +683,8 @@ function SubscriptionsTab({
   })
 
   const service = services?.items.find((s) => s.id === serviceId)
-  // Only tiers this service prices AND this client's account type qualifies for. The
-  // server enforces the same rule; this just keeps impossible choices off the screen.
-  const eligible = (service?.pricing_options ?? []).filter((p) => {
-    const option = catalog?.find((o) => o.id === p.pricing_option_id)
-    return option && (option.applies_to.length === 0 || option.applies_to.includes(accountType))
-  })
+  // Every option the service prices is offered — the operator picks; no account-type gate.
+  const eligible = service?.pricing_options ?? []
   const chosen = eligible.find((p) => p.pricing_option_id === pricingOptionId)
 
   const save = useMutation({

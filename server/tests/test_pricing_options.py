@@ -142,34 +142,18 @@ async def test_service_out_shows_resolved_price(client, headers_a):
 # ---------------------------------------------------------------- eligibility
 
 
-async def test_option_restricted_to_account_type(client, headers_a):
-    """Corporate Plan is for corporate employees; a walk-in individual is refused."""
-    opt = await create_pricing_option(client, headers_a, applies_to=["Corporate"])
+async def test_any_client_can_use_any_priced_option(client, headers_a):
+    """Options are no longer gated by account type — a service's options are open to
+    any client, whatever their account type; the operator chooses."""
+    opt = await create_pricing_option(client, headers_a)
     svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "20")
-    walk_in = await create_client_rec(client, headers_a, name="Asha", account_type="Individual")
 
-    res = await _subscribe(client, headers_a, svc, walk_in, option_id=opt["id"])
-    assert res.status_code == 422
-    assert "only available to Corporate" in res.json()["detail"]
-
-
-async def test_eligible_account_type_accepted(client, headers_a):
-    opt = await create_pricing_option(client, headers_a, applies_to=["Corporate"])
-    svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "20")
-    employee = await create_client_rec(
-        client, headers_a, name="Ravi", account_type="Corporate", company_name="Infosys"
-    )
-    res = await _subscribe(client, headers_a, svc, employee, option_id=opt["id"])
-    assert res.status_code == 201, res.text
-    assert res.json()["effective_rate"] == "2400"
-
-
-async def test_empty_applies_to_allows_anyone(client, headers_a):
-    opt = await create_pricing_option(client, headers_a, name="Early Bird", applies_to=[])
-    svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "10")
-    rec = await create_client_rec(client, headers_a, account_type="Individual")
-    res = await _subscribe(client, headers_a, svc, rec, option_id=opt["id"])
-    assert res.status_code == 201, res.text
+    for account_type in ("Individual", "Corporate", "Family"):
+        rec = await create_client_rec(client, headers_a, name=f"C-{account_type}",
+                                      account_type=account_type)
+        res = await _subscribe(client, headers_a, svc, rec, option_id=opt["id"])
+        assert res.status_code == 201, res.text
+        assert res.json()["effective_rate"] == "2400"  # 20% off 3000
 
 
 async def test_option_not_priced_by_service_rejected(client, headers_a):
@@ -187,7 +171,7 @@ async def test_option_not_priced_by_service_rejected(client, headers_a):
 async def test_option_wins_over_subscription_discount(client, headers_a):
     """The decision that drives the engine: an option's price wins outright and the
     subscription discount is zeroed, so the two can never silently compound."""
-    opt = await create_pricing_option(client, headers_a, applies_to=["Corporate"])
+    opt = await create_pricing_option(client, headers_a)
     svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "20", rate="3000")
     rec = await create_client_rec(client, headers_a, account_type="Corporate")
 
@@ -216,7 +200,7 @@ async def test_no_option_still_uses_discount_pct(client, headers_a):
 
 async def test_invoice_uses_option_price(client, headers_a):
     """The resolved price must reach the actual invoice, not just the API response."""
-    opt = await create_pricing_option(client, headers_a, applies_to=["Corporate"])
+    opt = await create_pricing_option(client, headers_a)
     svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "20", rate="3000")
     rec = await create_client_rec(client, headers_a, account_type="Corporate")
     await _subscribe(client, headers_a, svc, rec, option_id=opt["id"])

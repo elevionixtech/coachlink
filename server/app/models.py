@@ -247,8 +247,6 @@ class PricingOption(TimestampMixin, OrgMixin, ArchivedMixin, Base):
 
     name: Mapped[str] = mapped_column(sa.Text, nullable=False)
     description: Mapped[str | None] = mapped_column(sa.Text)
-    # Account types eligible for this option; empty list means "anyone".
-    applies_to: Mapped[list[str]] = mapped_column(JSONVariant, default=list, nullable=False)
     sort_order: Mapped[int] = mapped_column(sa.Integer, default=0, nullable=False)
 
 

@@ -2,13 +2,12 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { OrgSettingsOut, PricingOptionOut } from '../api/types'
-import { ACCOUNT_TYPES } from '../api/types'
 import { fullDate } from '../lib/format'
 import {
-  Badge, Button, EmptyState, ErrorNote, Field, Panel, SealHeading, Spinner, Table, TextArea,
+  Button, EmptyState, ErrorNote, Field, Panel, SealHeading, Spinner, Table, TextArea,
 } from '../components/ui'
 
-const BLANK = { name: '', description: '', applies_to: [] as string[], sort_order: 0 }
+const BLANK = { name: '', description: '', sort_order: 0 }
 
 export default function PricingOptions() {
   const queryClient = useQueryClient()
@@ -39,8 +38,6 @@ export default function PricingOptions() {
     onError: (e) => setError(errorMessage(e)),
   })
 
-  const toggleType = (t: string, on: boolean) =>
-    set('applies_to', on ? [...form.applies_to, t] : form.applies_to.filter((x) => x !== t))
 
   return (
     <div>
@@ -55,22 +52,13 @@ export default function PricingOptions() {
               hint="Add a tier such as Corporate Plan or Student, then set what each service charges for it on the service itself."
             />
           ) : (
-            <Table head={['Name', 'Available to', 'Order', 'Added', '']}>
+            <Table head={['Name', 'Order', 'Added', '']}>
               {options?.map((o) => (
                 <tr key={o.id}>
                   <td className="px-4 py-2.5">
                     <div>{o.name}</div>
                     {o.description && (
                       <div className="text-xs text-muted">{o.description}</div>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5">
-                    {o.applies_to.length === 0 ? (
-                      <span className="text-sm text-muted">Any account type</span>
-                    ) : (
-                      <span className="flex gap-1.5">
-                        {o.applies_to.map((t) => <Badge key={t} tone="draft">{t}</Badge>)}
-                      </span>
                     )}
                   </td>
                   <td className="px-4 py-2.5 font-mono text-xs">{o.sort_order}</td>
@@ -109,25 +97,6 @@ export default function PricingOptions() {
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
             />
-            <div>
-              <span className="eyebrow">Available to</span>
-              <div className="mt-1 space-y-1">
-                {ACCOUNT_TYPES.map((t) => (
-                  <label key={t} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      className="accent-orange"
-                      checked={form.applies_to.includes(t)}
-                      onChange={(e) => toggleType(t, e.target.checked)}
-                    />
-                    {t}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                Leave all unchecked to offer this option to every account type.
-              </p>
-            </div>
             <Field
               label="Sort order"
               type="number"

@@ -123,7 +123,7 @@ async def test_eligible_clients_only_lists_subscribers(client, headers_a):
 
     yes = await create_client_rec(client, headers_a, name="Subscriber")
     await _subscribe(client, headers_a, yes["id"], svc["id"])
-    no_sub = await create_client_rec(client, headers_a, name="No Sub")
+    await create_client_rec(client, headers_a, name="No Sub")
     wrong = await create_client_rec(client, headers_a, name="Wrong Service")
     await _subscribe(client, headers_a, wrong["id"], other["id"])
 
@@ -246,7 +246,7 @@ async def test_eligible_excludes_clients_in_other_batches(client, headers_a):
     b1 = await _open_batch(client, headers_a, "EL-OTHER-1")
     b2 = await _open_batch(client, headers_a, "EL-OTHER-2")
     in_b1 = await create_client_rec(client, headers_a, name="Already In B1")
-    free = await create_client_rec(client, headers_a, name="Free Agent")
+    await create_client_rec(client, headers_a, name="Free Agent")
     await _enroll(client, headers_a, in_b1["id"], b1["id"])
 
     eligible = await _eligible(client, headers_a, b2["id"])

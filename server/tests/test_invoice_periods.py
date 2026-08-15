@@ -73,9 +73,10 @@ async def test_extending_shifts_every_later_period(client, headers_a):
     issued = await _invoices(client, headers_a)
     assert (issued[0]["period_start"], issued[0]["period_end"]) == ("2026-05-01", "2026-05-31")
 
-    # Give this client two extra weeks on their current period.
+    # Give this client extra time on their current period — a future date so it still
+    # covers today and no new period is due (kept relative so the test doesn't rot).
     latest = issued[-1]
-    extended_to = "2026-08-14"
+    extended_to = str(date.today() + timedelta(days=20))
     res = await client.patch(
         f"/api/invoices/{latest['id']}", json={"period_end": extended_to}, headers=headers_a
     )

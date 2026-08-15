@@ -219,15 +219,12 @@ class DeliverableOut(ORMModel):
 class PricingOptionIn(BaseModel):
     name: str = Field(min_length=1)
     description: str | None = None
-    # Empty means any account type may use the option.
-    applies_to: list[AccountType] = []
     sort_order: int = 0
 
 
 class PricingOptionPatch(BaseModel):
     name: str | None = Field(default=None, min_length=1)
     description: str | None = None
-    applies_to: list[AccountType] | None = None
     sort_order: int | None = None
 
 
@@ -235,7 +232,6 @@ class PricingOptionOut(ORMModel):
     id: uuid.UUID
     name: str
     description: str | None
-    applies_to: list[AccountType]
     sort_order: int
     created_at: datetime
 

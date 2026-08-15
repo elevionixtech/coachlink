@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException
 
 from app.deps import OrgUser, SessionDep
 from app.models import Service, Subscription
-from app.routers.clients import _check_option_allowed, subscription_out
+from app.routers.clients import _check_option_priced, subscription_out
 from app.routers.common import get_owned_or_404
 from app.schemas import SubscriptionIn, SubscriptionOut, SubscriptionPatch
 
@@ -39,9 +39,7 @@ async def edit_subscription(
     service = await get_owned_or_404(session, Service, body.service_id, ctx.org.id)
     data = body.model_dump()
     if body.pricing_option_id is not None:
-        await _check_option_allowed(
-            session, ctx.org.id, sub.client, service, body.pricing_option_id
-        )
+        await _check_option_priced(session, ctx.org.id, service, body.pricing_option_id)
         # The option sets the price outright, so never store a discount that is ignored.
         data["discount_pct"] = Decimal("0")
 
