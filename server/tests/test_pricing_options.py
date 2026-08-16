@@ -197,6 +197,30 @@ async def test_no_option_still_uses_discount_pct(client, headers_a):
     assert res.json()["effective_rate"] == "2700"
 
 
+async def test_subscription_total_admin_only(client, headers_a, headers_a_staff):
+    """The org-wide active-subscription total sums each subscription's amount, excludes
+    ended ones, and is admin-only (staff get 403)."""
+    opt = await create_pricing_option(client, headers_a)
+    svc = await _priced_service(client, headers_a, opt["id"], "discount_pct", "20", rate="3000")
+    a = await create_client_rec(client, headers_a, name="A")
+    b = await create_client_rec(client, headers_a, name="B")
+    await _subscribe(client, headers_a, svc, a, option_id=opt["id"])  # 2400
+    ended = (await _subscribe(client, headers_a, svc, b)).json()  # 3000, then ended
+    await client.patch(
+        f"/api/subscriptions/{ended['id']}", json={"status": "ended"}, headers=headers_a
+    )
+
+    res = await client.get("/api/clients/subscription-total", headers=headers_a)
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["active_subscriptions"] == 1
+    assert body["total"] in ("2400", "2400.00")  # ended one excluded
+
+    # Staff may not see it.
+    staff = await client.get("/api/clients/subscription-total", headers=headers_a_staff)
+    assert staff.status_code == 403
+
+
 async def test_invoice_uses_option_price(client, headers_a):
     """The resolved price must reach the actual invoice, not just the API response."""
     opt = await create_pricing_option(client, headers_a)

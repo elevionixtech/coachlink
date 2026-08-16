@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { ClientIn, ClientOut, Page } from '../api/types'
 import { GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
+import { useAuth } from '../store/auth'
+import { rupees } from '../lib/format'
 import {
   Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
   Spinner, Table, TextArea, statusTone,
@@ -111,6 +113,15 @@ export default function Clients() {
   const [activeOnly, setActiveOnly] = useState(false)
   const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
+  const isAdmin = useAuth((s) => s.user?.role === 'admin')
+
+  // Org-wide active-subscription total — admin only (the endpoint 403s staff).
+  const { data: subTotal } = useQuery({
+    queryKey: ['clients-subscription-total'],
+    queryFn: async () =>
+      (await api.get<{ total: string; active_subscriptions: number }>('/clients/subscription-total')).data,
+    enabled: isAdmin,
+  })
 
   const { data, isLoading } = useQuery({
     queryKey: ['clients', q, stage, activeOnly],
@@ -130,7 +141,18 @@ export default function Clients() {
     <div>
       <div className="flex items-start justify-between">
         <SealHeading eyebrow="CRM">Clients</SealHeading>
-        <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>
+        <div className="flex items-start gap-5">
+          {isAdmin && subTotal && (
+            <div className="text-right">
+              <div className="eyebrow">Subscriptions total</div>
+              <div className="font-mono text-lg">{rupees(subTotal.total)}</div>
+              <div className="font-mono text-xs text-brown-mid">
+                {subTotal.active_subscriptions} active
+              </div>
+            </div>
+          )}
+          <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

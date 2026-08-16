@@ -398,6 +398,12 @@ class ClientOut(ORMModel):
     batch_code: str | None = None
 
 
+class SubscriptionTotalOut(BaseModel):
+    # Org-wide sum of every active subscription's per-period amount (admin only).
+    total: Decimal
+    active_subscriptions: int
+
+
 class ClientRef(ORMModel):
     id: uuid.UUID
     name: str

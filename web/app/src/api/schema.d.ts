@@ -281,6 +281,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/clients/subscription-total": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Clients Subscription Total
+         * @description Org-wide sum of every active subscription's per-period amount, across all clients.
+         *     Admin only (OrgAdmin dependency 403s staff).
+         */
+        get: operations["clients_subscription_total_api_clients_subscription_total_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/clients/{client_id}": {
         parameters: {
             query?: never;
@@ -2244,6 +2265,13 @@ export interface components {
          * @enum {string}
          */
         SubscriptionStatus: "active" | "ended";
+        /** SubscriptionTotalOut */
+        SubscriptionTotalOut: {
+            /** Total */
+            total: string;
+            /** Active Subscriptions */
+            active_subscriptions: number;
+        };
         /** TokenPair */
         TokenPair: {
             /** Access Token */
@@ -3112,6 +3140,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clients_subscription_total_api_clients_subscription_total_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionTotalOut"];
                 };
             };
         };

@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from fastapi import APIRouter, HTTPException
 
 from app.billing import subscription_amount
-from app.deps import OrgUser, SessionDep
+from app.deps import OrgAdmin, OrgUser, SessionDep
 from app.models import (
     Batch,
     Client,
@@ -42,6 +42,7 @@ from app.schemas import (
     Page,
     SubscriptionIn,
     SubscriptionOut,
+    SubscriptionTotalOut,
 )
 
 router = APIRouter(prefix="/clients", tags=["clients"])
@@ -167,6 +168,28 @@ async def create_client(body: ClientIn, ctx: OrgUser, session: SessionDep) -> Cl
     session.add(client)
     await session.commit()
     return await _client_out(session, client)
+
+
+# Declared before /{client_id} so the literal path is not swallowed by the UUID route.
+@router.get("/subscription-total")
+async def clients_subscription_total(
+    ctx: OrgAdmin, session: SessionDep
+) -> SubscriptionTotalOut:
+    """Org-wide sum of every active subscription's per-period amount, across all clients.
+    Admin only (OrgAdmin dependency 403s staff)."""
+    subs = (
+        await session.scalars(
+            sa.select(Subscription)
+            .join(Client, Client.id == Subscription.client_id)
+            .where(
+                Client.org_id == ctx.org.id,
+                not_archived(Client),
+                Subscription.status == SubscriptionStatus.active,
+            )
+        )
+    ).all()
+    total = sum((subscription_amount(s) for s in subs), Decimal("0"))
+    return SubscriptionTotalOut(total=total, active_subscriptions=len(subs))
 
 
 @router.get("/{client_id}")
