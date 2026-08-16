@@ -177,6 +177,33 @@ async def test_search_and_lifecycle_filter(client, headers_a):
     assert len(res.json()["items"]) == 2
 
 
+async def test_clients_total_and_active_subscriber_filter(client, headers_a):
+    """The list reports a filtered total, and active_subscribers restricts to clients
+    holding an active subscription — with the total moving to match."""
+    svc = await create_service(client, headers_a, sku="AS-1", rate="3000")
+    subbed = await create_client_rec(client, headers_a, name="Subbed")
+    await create_client_rec(client, headers_a, name="Unsubbed")
+    await client.post(
+        f"/api/clients/{subbed['id']}/subscriptions",
+        json={"service_id": svc["id"], "start_date": "2026-07-01"},
+        headers=headers_a,
+    )
+
+    everyone = (await client.get("/api/clients", headers=headers_a)).json()
+    assert everyone["total"] == 2
+    assert len(everyone["items"]) == 2
+
+    active = (await client.get("/api/clients?active_subscribers=true", headers=headers_a)).json()
+    assert active["total"] == 1
+    assert [c["name"] for c in active["items"]] == ["Subbed"]
+
+    # The filter composes with search, and the total follows the composed filter.
+    none = (
+        await client.get("/api/clients?active_subscribers=true&q=Unsubbed", headers=headers_a)
+    ).json()
+    assert none["total"] == 0 and none["items"] == []
+
+
 async def test_service_deliverables_roundtrip(client, headers_a):
     service = await create_service(client, headers_a, sku="DEL-1")
     assert service["deliverables"][0]["unit"] == "classes"

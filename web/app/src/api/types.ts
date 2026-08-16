@@ -33,7 +33,7 @@ export type InvoiceDocumentOut = S['InvoiceDocumentOut']
 export type InvoicePage = S['InvoicePage']
 export type DashboardOut = S['DashboardOut']
 
-export type Page<T> = { items: T[]; next_cursor: number | null }
+export type Page<T> = { items: T[]; next_cursor: number | null; total?: number | null }
 
 export const SERVICE_TYPES = ['Subscription', 'Usage Based', 'One Time', 'Project Based'] as const
 export const DELIVERY_MODES = ['Offline', 'Online', 'Hybrid', 'Self Service'] as const

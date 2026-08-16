@@ -74,20 +74,17 @@ async def list_clients(
     session: SessionDep,
     q: str | None = None,
     lifecycle_stage: LifecycleStage | None = None,
+    active_subscribers: bool = False,
     cursor: int = 0,
     limit: int = PAGE_LIMIT_DEFAULT,
 ) -> Page[ClientOut]:
     limit = clamp_limit(limit)
-    stmt = (
-        sa.select(Client)
-        .where(Client.org_id == ctx.org.id, not_archived(Client))
-        .order_by(Client.created_at.desc(), Client.id)
-        .offset(cursor)
-        .limit(limit + 1)
-    )
+    # One set of filters drives both the page query and its total count, so the count
+    # always reflects exactly what is (or would be) shown.
+    conditions = [Client.org_id == ctx.org.id, not_archived(Client)]
     if q:
         pattern = f"%{q}%"
-        stmt = stmt.where(
+        conditions.append(
             sa.or_(
                 Client.name.ilike(pattern),
                 Client.phone.ilike(pattern),
@@ -95,7 +92,23 @@ async def list_clients(
             )
         )
     if lifecycle_stage:
-        stmt = stmt.where(Client.lifecycle_stage == lifecycle_stage)
+        conditions.append(Client.lifecycle_stage == lifecycle_stage)
+    if active_subscribers:
+        with_active = sa.select(Subscription.client_id).where(
+            Subscription.status == SubscriptionStatus.active
+        )
+        conditions.append(Client.id.in_(with_active))
+
+    total = await session.scalar(
+        sa.select(sa.func.count()).select_from(Client).where(*conditions)
+    )
+    stmt = (
+        sa.select(Client)
+        .where(*conditions)
+        .order_by(Client.created_at.desc(), Client.id)
+        .offset(cursor)
+        .limit(limit + 1)
+    )
     rows = (await session.scalars(stmt)).all()
     page = rows[:limit]
     services, batches = await _client_summaries(session, [c.id for c in page])
@@ -107,7 +120,9 @@ async def list_clients(
         if batch:
             out.batch_name, out.batch_code = batch
         items.append(out)
-    return Page(items=items, next_cursor=next_cursor(cursor, limit, len(rows)))
+    return Page(
+        items=items, next_cursor=next_cursor(cursor, limit, len(rows)), total=total
+    )
 
 
 async def _client_summaries(

@@ -108,15 +108,20 @@ export function ClientForm({
 export default function Clients() {
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('')
+  const [activeOnly, setActiveOnly] = useState(false)
   const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', q, stage],
+    queryKey: ['clients', q, stage, activeOnly],
     queryFn: async () =>
       (
         await api.get<Page<ClientOut>>('/clients', {
-          params: { q: q || undefined, lifecycle_stage: stage || undefined },
+          params: {
+            q: q || undefined,
+            lifecycle_stage: stage || undefined,
+            active_subscribers: activeOnly || undefined,
+          },
         })
       ).data,
   })
@@ -128,7 +133,7 @@ export default function Clients() {
         <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>
       </div>
 
-      <div className="mb-4 flex gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -143,6 +148,20 @@ export default function Clients() {
           <option value="">All stages</option>
           {LIFECYCLE_STAGES.map((s) => <option key={s}>{s}</option>)}
         </select>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={activeOnly}
+            onChange={(e) => setActiveOnly(e.target.checked)}
+            className="accent-orange"
+          />
+          Active subscribers
+        </label>
+        {data?.total != null && (
+          <span className="ml-auto font-mono text-sm text-brown-mid">
+            {data.total} {data.total === 1 ? 'client' : 'clients'}
+          </span>
+        )}
       </div>
 
       {isLoading ? (
@@ -151,8 +170,8 @@ export default function Clients() {
         <Panel>
           <EmptyState
             title="No clients found"
-            hint={q || stage ? 'Try a different search or filter.' : 'Add your first client to get started.'}
-            action={!q && !stage && <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
+            hint={q || stage || activeOnly ? 'Try a different search or filter.' : 'Add your first client to get started.'}
+            action={!q && !stage && !activeOnly && <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
           />
         </Panel>
       ) : (

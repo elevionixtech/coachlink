@@ -1540,6 +1540,8 @@ export interface components {
             items: components["schemas"]["InvoiceOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
             /**
              * Outstanding Total
              * @default 0
@@ -1829,6 +1831,8 @@ export interface components {
             items: components["schemas"]["BatchOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** Page[ClientOut] */
         Page_ClientOut_: {
@@ -1836,6 +1840,8 @@ export interface components {
             items: components["schemas"]["ClientOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** Page[EnrollmentOut] */
         Page_EnrollmentOut_: {
@@ -1843,6 +1849,8 @@ export interface components {
             items: components["schemas"]["EnrollmentOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** Page[InstructorOut] */
         Page_InstructorOut_: {
@@ -1850,6 +1858,8 @@ export interface components {
             items: components["schemas"]["InstructorOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** Page[LocationOut] */
         Page_LocationOut_: {
@@ -1857,6 +1867,8 @@ export interface components {
             items: components["schemas"]["LocationOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** Page[ServiceOut] */
         Page_ServiceOut_: {
@@ -1864,6 +1876,8 @@ export interface components {
             items: components["schemas"]["ServiceOut"][];
             /** Next Cursor */
             next_cursor?: number | null;
+            /** Total */
+            total?: number | null;
         };
         /** PasswordChangeIn */
         PasswordChangeIn: {
@@ -3016,6 +3030,7 @@ export interface operations {
             query?: {
                 q?: string | null;
                 lifecycle_stage?: components["schemas"]["LifecycleStage"] | null;
+                active_subscribers?: boolean;
                 cursor?: number;
                 limit?: number;
             };

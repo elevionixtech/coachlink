@@ -32,6 +32,9 @@ class ORMModel(BaseModel):
 class Page[T](BaseModel):
     items: list[T]
     next_cursor: int | None = None
+    # Total rows matching the query's filters, ignoring pagination. Populated where the
+    # caller needs a filtered count (e.g. the clients list); None where not computed.
+    total: int | None = None
 
 
 # ---------------------------------------------------------------- auth
