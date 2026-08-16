@@ -60,6 +60,20 @@ def _validate_windows(body: BatchIn | BatchPatch, existing: Batch | None = None)
         raise HTTPException(422, detail="end_time must be after start_time")
 
 
+def schedule_order():
+    """Order-by clauses that sort batches earliest-schedule-first (start date, then
+    start time), with unscheduled batches last. The `is_(None)` keys push nulls after
+    real values portably across SQLite and Postgres."""
+    return (
+        Batch.start_date.is_(None),
+        Batch.start_date,
+        Batch.start_time.is_(None),
+        Batch.start_time,
+        Batch.name,
+        Batch.id,
+    )
+
+
 async def enrolled_counts(
     session: SessionDep, batch_ids: list[uuid.UUID]
 ) -> dict[uuid.UUID, int]:
@@ -95,16 +109,7 @@ async def list_batches(
     stmt = (
         sa.select(Batch)
         .where(Batch.org_id == ctx.org.id, not_archived(Batch))
-        # Show batches in schedule order — earliest first — with unscheduled ones last.
-        # The `is_(None)` keys sort nulls after real values portably (SQLite + Postgres).
-        .order_by(
-            Batch.start_date.is_(None),
-            Batch.start_date,
-            Batch.start_time.is_(None),
-            Batch.start_time,
-            Batch.name,
-            Batch.id,
-        )
+        .order_by(*schedule_order())
         .offset(cursor)
         .limit(limit + 1)
     )

@@ -18,6 +18,7 @@ from app.models import (
     Service,
     Subscription,
     SubscriptionStatus,
+    batch_service,
 )
 from app.routers.common import (
     PAGE_LIMIT_DEFAULT,
@@ -28,6 +29,7 @@ from app.routers.common import (
 )
 from app.schemas import (
     AdvanceInvoiceIn,
+    BatchOut,
     ClientIn,
     ClientOut,
     ClientPatch,
@@ -364,3 +366,46 @@ async def list_client_enrollments(
         )
         for e in enrollments
     ]
+
+
+@router.get("/{client_id}/eligible-batches")
+async def list_eligible_batches(
+    client_id: uuid.UUID, ctx: OrgUser, session: SessionDep
+) -> list[BatchOut]:
+    """Batches this client may enrol in (§5.5): those whose services include one of the
+    client's active subscriptions, plus serviceless (open-to-all) batches — ordered by
+    schedule, earliest first. A client may be in only one batch, so once enrolled
+    anywhere this returns nothing."""
+    from app.routers.batches import batch_out, enrolled_counts, schedule_order
+
+    await get_owned_or_404(session, Client, client_id, ctx.org.id)
+    already_enrolled = await session.scalar(
+        sa.select(sa.func.count())
+        .select_from(Enrollment)
+        .where(Enrollment.client_id == client_id)
+    )
+    if already_enrolled:
+        return []
+
+    active_services = sa.select(Subscription.service_id).where(
+        Subscription.client_id == client_id,
+        Subscription.status == SubscriptionStatus.active,
+    )
+    # Open batches list no service; otherwise the client must subscribe to one of them.
+    open_batch = ~sa.exists().where(batch_service.c.batch_id == Batch.id)
+    matched = sa.exists().where(
+        batch_service.c.batch_id == Batch.id,
+        batch_service.c.service_id.in_(active_services),
+    )
+    stmt = (
+        sa.select(Batch)
+        .where(
+            Batch.org_id == ctx.org.id,
+            not_archived(Batch),
+            sa.or_(open_batch, matched),
+        )
+        .order_by(*schedule_order())
+    )
+    rows = (await session.scalars(stmt)).unique().all()
+    counts = await enrolled_counts(session, [b.id for b in rows])
+    return [batch_out(b, counts.get(b.id, 0)) for b in rows]

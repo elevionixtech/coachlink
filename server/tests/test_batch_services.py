@@ -57,6 +57,41 @@ async def _enroll(client, headers, client_id, batch_id):
     )
 
 
+async def test_eligible_batches_for_client(client, headers_a):
+    """/clients/{id}/eligible-batches lists batches the client may enrol in — matched by
+    active subscription or open (serviceless) — in schedule order, and nothing once the
+    client is already enrolled."""
+    loc = await create_location(client, headers_a)
+    ins = await create_instructor(client, headers_a)
+    yoga = await create_service(client, headers_a, sku="EB-YOGA")
+    pilates = await create_service(client, headers_a, sku="EB-PIL")
+    rec = await create_client_rec(client, headers_a)
+    await _subscribe(client, headers_a, rec["id"], yoga["id"])
+
+    async def make(code, name, services, start_time):
+        return await create_batch(
+            client, headers_a, loc["id"], ins["id"], code=code, name=name,
+            service_ids=services, start_time=start_time,
+        )
+
+    await make("EB-EVE", "Evening", [yoga["id"]], "18:00:00")
+    await make("EB-MORN", "Morning", [yoga["id"]], "06:00:00")
+    await make("EB-OTHER", "Pilates", [pilates["id"]], "09:00:00")  # not subscribed
+    await make("EB-OPEN", "Open", [], "12:00:00")  # serviceless — open to all
+
+    res = await client.get(f"/api/clients/{rec['id']}/eligible-batches", headers=headers_a)
+    assert res.status_code == 200, res.text
+    listed = res.json()
+    # Schedule order (all start today): 06:00, 12:00, 18:00. Pilates (09:00) excluded.
+    assert [b["code"] for b in listed] == ["EB-MORN", "EB-OPEN", "EB-EVE"]
+
+    # Once enrolled anywhere, no batch is offered (one batch per client, §5.5).
+    morn_id = next(b["id"] for b in listed if b["code"] == "EB-MORN")
+    assert (await _enroll(client, headers_a, rec["id"], morn_id)).status_code == 201
+    res = await client.get(f"/api/clients/{rec['id']}/eligible-batches", headers=headers_a)
+    assert res.json() == []
+
+
 async def test_batch_stores_its_services(client, headers_a):
     svc = await create_service(client, headers_a, sku="BS-SVC")
     batch = await _batch_with_services(client, headers_a, [svc["id"]])

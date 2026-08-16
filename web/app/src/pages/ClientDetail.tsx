@@ -830,9 +830,11 @@ function EnrollmentsTab({ clientId }: { clientId: string }) {
     queryKey: ['client-enrollments', clientId],
     queryFn: async () => (await api.get<EnrollmentOut[]>(`/clients/${clientId}/enrollments`)).data,
   })
+  // Only batches this client is eligible for (matched by active subscription, or open),
+  // already schedule-sorted by the API.
   const { data: batches } = useQuery({
-    queryKey: ['batches-for-enroll'],
-    queryFn: async () => (await api.get<Page<BatchOut>>('/batches', { params: { limit: 200 } })).data,
+    queryKey: ['eligible-batches', clientId],
+    queryFn: async () => (await api.get<BatchOut[]>(`/clients/${clientId}/eligible-batches`)).data,
     enabled: adding,
   })
 
@@ -904,12 +906,18 @@ function EnrollmentsTab({ clientId }: { clientId: string }) {
           >
             <SelectField label="Batch" value={batchId} onChange={(e) => setBatchId(e.target.value)} required>
               <option value="">Choose a batch…</option>
-              {batches?.items.map((b) => (
+              {batches?.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} · {b.code} · {b.enrolled_count}/{b.capacity ?? '∞'}
                 </option>
               ))}
             </SelectField>
+            {batches && batches.length === 0 && (
+              <p className="text-xs text-brown-mid">
+                No batches match this client's active subscriptions. Add a subscription to a
+                batch's service first.
+              </p>
+            )}
             <Field label="Start date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />
             <ErrorNote message={error} />
             <div className="flex justify-end gap-3">
