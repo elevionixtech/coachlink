@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 // ---------------------------------------------------------------- buttons
@@ -133,77 +134,107 @@ export function SelectField({
 }
 
 /** A dropdown of checkboxes for choosing several options at once. Closes on outside
- *  click. The trigger shows the label and, once anything is picked, the count. */
+ *  click. The `field` variant is a bordered control; the `header` variant renders as a
+ *  clickable table-column header that turns orange while a filter is applied. */
 export function MultiSelect({
   label,
   options,
   selected,
   onChange,
+  variant = 'field',
 }: {
   label: string
   options: { value: string; label: string }[]
   selected: string[]
   onChange: (values: string[]) => void
+  variant?: 'field' | 'header'
 }) {
   const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    // The menu renders in a portal (so the table's overflow can't clip it); keep it
+    // anchored under the trigger and dismiss it on an outside click.
+    const place = () => {
+      const r = triggerRef.current?.getBoundingClientRect()
+      if (r) setPos({ top: r.bottom + 4, left: r.left })
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    place()
+    const onDoc = (e: MouseEvent) => {
+      const t = e.target as Node
+      if (!triggerRef.current?.contains(t) && !menuRef.current?.contains(t)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', place, true)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('resize', place)
+      window.removeEventListener('scroll', place, true)
+    }
   }, [open])
 
   const toggle = (value: string, on: boolean) =>
     onChange(on ? [...selected, value] : selected.filter((v) => v !== value))
 
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={`rounded-[4px] border bg-white px-3 py-2 text-sm cursor-pointer ${
+  const trigger =
+    variant === 'header'
+      ? `eyebrow inline-flex items-center gap-1 cursor-pointer font-medium ${
+          selected.length ? 'text-orange-deep' : ''
+        }`
+      : `rounded-[4px] border bg-white px-3 py-2 text-sm cursor-pointer ${
           selected.length ? 'border-brown-deep text-brown' : 'border-gold-soft text-brown-mid'
-        }`}
-      >
-        {selected.length ? `${label} · ${selected.length}` : label}
-        <span className="ml-1 text-brown-mid">▾</span>
+        }`
+
+  return (
+    <span className="inline-block">
+      <button ref={triggerRef} type="button" onClick={() => setOpen((o) => !o)} className={trigger}>
+        {label}
+        {selected.length > 0 && ` · ${selected.length}`}
+        <span className={variant === 'header' ? '' : 'ml-1 text-brown-mid'}>▾</span>
       </button>
-      {open && (
-        <div className="absolute z-20 mt-1 max-h-72 w-64 overflow-auto rounded-[4px] border border-gold-soft bg-white p-2 shadow-lg">
-          {options.length === 0 ? (
-            <div className="px-1 py-1 text-xs text-brown-mid">No options</div>
-          ) : (
-            options.map((o) => (
-              <label
-                key={o.value}
-                className="flex items-center gap-2 rounded-[3px] px-1 py-1 text-sm cursor-pointer hover:bg-yellow-pale"
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left }}
+            className="z-50 max-h-72 w-64 overflow-auto rounded-[4px] border border-gold-soft bg-white p-2 text-left text-sm normal-case tracking-normal text-brown shadow-lg"
+          >
+            {options.length === 0 ? (
+              <div className="px-1 py-1 text-xs text-brown-mid">No options</div>
+            ) : (
+              options.map((o) => (
+                <label
+                  key={o.value}
+                  className="flex items-center gap-2 rounded-[3px] px-1 py-1 text-sm cursor-pointer hover:bg-yellow-pale"
+                >
+                  <input
+                    type="checkbox"
+                    className="accent-orange"
+                    checked={selected.includes(o.value)}
+                    onChange={(e) => toggle(o.value, e.target.checked)}
+                  />
+                  {o.label}
+                </label>
+              ))
+            )}
+            {selected.length > 0 && (
+              <button
+                type="button"
+                onClick={() => onChange([])}
+                className="mt-1 w-full px-1 py-1 text-left text-xs text-orange-deep cursor-pointer"
               >
-                <input
-                  type="checkbox"
-                  className="accent-orange"
-                  checked={selected.includes(o.value)}
-                  onChange={(e) => toggle(o.value, e.target.checked)}
-                />
-                {o.label}
-              </label>
-            ))
-          )}
-          {selected.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onChange([])}
-              className="mt-1 w-full px-1 py-1 text-left text-xs text-orange-deep cursor-pointer"
-            >
-              Clear selection
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+                Clear selection
+              </button>
+            )}
+          </div>,
+          document.body,
+        )}
+    </span>
   )
 }
 
@@ -259,14 +290,14 @@ export function Modal({
 
 // ---------------------------------------------------------------- table
 
-export function Table({ head, children }: { head: string[]; children: ReactNode }) {
+export function Table({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
     <Panel className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-gold-soft">
-            {head.map((h) => (
-              <th key={h} className="eyebrow px-4 py-2.5 text-left font-medium">
+            {head.map((h, i) => (
+              <th key={i} className="eyebrow px-4 py-2.5 text-left font-medium">
                 {h}
               </th>
             ))}

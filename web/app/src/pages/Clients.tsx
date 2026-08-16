@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
 import type { BatchOut, ClientIn, ClientOut, Page, ServiceOut } from '../api/types'
 import { GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
@@ -149,7 +149,14 @@ export default function Clients() {
           },
         })
       ).data,
+    // Keep the current rows on screen while a filter change refetches, so the table —
+    // and the header filter dropdown the user is clicking in — never unmounts.
+    placeholderData: keepPreviousData,
   })
+
+  // Column-header filters live in the table, so keep the table visible whenever any
+  // filter is active — even with no matches — or the user can't clear them.
+  const anyFilter = !!(q || stage || activeOnly || batchIds.length || serviceIds.length)
 
   return (
     <div>
@@ -184,18 +191,6 @@ export default function Clients() {
           <option value="">All stages</option>
           {LIFECYCLE_STAGES.map((s) => <option key={s}>{s}</option>)}
         </select>
-        <MultiSelect
-          label="Batches"
-          selected={batchIds}
-          onChange={setBatchIds}
-          options={(batchOpts?.items ?? []).map((b) => ({ value: b.id, label: `${b.name} · ${b.code}` }))}
-        />
-        <MultiSelect
-          label="Subscriptions"
-          selected={serviceIds}
-          onChange={setServiceIds}
-          options={(serviceOpts?.items ?? []).map((s) => ({ value: s.id, label: `${s.name} · ${s.sku}` }))}
-        />
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -214,17 +209,47 @@ export default function Clients() {
 
       {isLoading ? (
         <Spinner />
-      ) : !data || data.items.length === 0 ? (
+      ) : !anyFilter && !data?.items.length ? (
         <Panel>
           <EmptyState
             title="No clients found"
-            hint={q || stage || activeOnly || batchIds.length || serviceIds.length ? 'Try a different search or filter.' : 'Add your first client to get started.'}
-            action={!q && !stage && !activeOnly && !batchIds.length && !serviceIds.length && <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
+            hint="Add your first client to get started."
+            action={<Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
           />
         </Panel>
       ) : (
-        <Table head={['Name', 'Contact', 'Stage', 'Subscriptions', 'Batch', 'Preferences']}>
-          {data.items.map((c) => (
+        <Table
+          head={[
+            'Name',
+            'Contact',
+            'Stage',
+            <MultiSelect
+              key="subs"
+              variant="header"
+              label="Subscriptions"
+              selected={serviceIds}
+              onChange={setServiceIds}
+              options={(serviceOpts?.items ?? []).map((s) => ({ value: s.id, label: `${s.name} · ${s.sku}` }))}
+            />,
+            <MultiSelect
+              key="batch"
+              variant="header"
+              label="Batch"
+              selected={batchIds}
+              onChange={setBatchIds}
+              options={(batchOpts?.items ?? []).map((b) => ({ value: b.id, label: `${b.name} · ${b.code}` }))}
+            />,
+            'Preferences',
+          ]}
+        >
+          {!data?.items.length && (
+            <tr>
+              <td colSpan={6} className="px-4 py-6 text-center text-sm text-brown-mid">
+                No clients match these filters.
+              </td>
+            </tr>
+          )}
+          {data?.items.map((c) => (
             <tr key={c.id}>
               <td className="px-4 py-2.5">
                 <Link to={`/clients/${c.id}`} className="font-medium text-orange-deep hover:text-orange">
