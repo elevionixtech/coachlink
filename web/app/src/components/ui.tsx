@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react'
 
 // ---------------------------------------------------------------- buttons
@@ -128,6 +129,81 @@ export function SelectField({
         {children}
       </select>
     </label>
+  )
+}
+
+/** A dropdown of checkboxes for choosing several options at once. Closes on outside
+ *  click. The trigger shows the label and, once anything is picked, the count. */
+export function MultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  label: string
+  options: { value: string; label: string }[]
+  selected: string[]
+  onChange: (values: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const toggle = (value: string, on: boolean) =>
+    onChange(on ? [...selected, value] : selected.filter((v) => v !== value))
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`rounded-[4px] border bg-white px-3 py-2 text-sm cursor-pointer ${
+          selected.length ? 'border-brown-deep text-brown' : 'border-gold-soft text-brown-mid'
+        }`}
+      >
+        {selected.length ? `${label} · ${selected.length}` : label}
+        <span className="ml-1 text-brown-mid">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-20 mt-1 max-h-72 w-64 overflow-auto rounded-[4px] border border-gold-soft bg-white p-2 shadow-lg">
+          {options.length === 0 ? (
+            <div className="px-1 py-1 text-xs text-brown-mid">No options</div>
+          ) : (
+            options.map((o) => (
+              <label
+                key={o.value}
+                className="flex items-center gap-2 rounded-[3px] px-1 py-1 text-sm cursor-pointer hover:bg-yellow-pale"
+              >
+                <input
+                  type="checkbox"
+                  className="accent-orange"
+                  checked={selected.includes(o.value)}
+                  onChange={(e) => toggle(o.value, e.target.checked)}
+                />
+                {o.label}
+              </label>
+            ))
+          )}
+          {selected.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onChange([])}
+              className="mt-1 w-full px-1 py-1 text-left text-xs text-orange-deep cursor-pointer"
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 

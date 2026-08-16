@@ -2,7 +2,9 @@ import axios, { AxiosError } from 'axios'
 import { useAuth } from '../store/auth'
 import type { TokenPair } from './types'
 
-export const api = axios.create({ baseURL: '/api' })
+// indexes: null serialises arrays as repeated keys (`ids=a&ids=b`), which is what
+// FastAPI's `list[...] = Query()` params expect — not the default `ids[]=a` form.
+export const api = axios.create({ baseURL: '/api', paramsSerializer: { indexes: null } })
 
 api.interceptors.request.use((config) => {
   const token = useAuth.getState().accessToken

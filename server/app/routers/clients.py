@@ -1,9 +1,10 @@
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Annotated
 
 import sqlalchemy as sa
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.billing import subscription_amount
 from app.deps import OrgAdmin, OrgUser, SessionDep
@@ -78,12 +79,15 @@ async def list_clients(
     q: str | None = None,
     lifecycle_stage: LifecycleStage | None = None,
     active_subscribers: bool = False,
+    batch_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    service_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
     cursor: int = 0,
     limit: int = PAGE_LIMIT_DEFAULT,
 ) -> Page[ClientOut]:
     limit = clamp_limit(limit)
     # One set of filters drives both the page query and its total count, so the count
-    # always reflects exactly what is (or would be) shown.
+    # always reflects exactly what is (or would be) shown. Within a facet the ids are
+    # OR'd (any of the chosen batches/services); across facets they combine with AND.
     conditions = [Client.org_id == ctx.org.id, not_archived(Client)]
     if q:
         pattern = f"%{q}%"
@@ -101,6 +105,17 @@ async def list_clients(
             Subscription.status == SubscriptionStatus.active
         )
         conditions.append(Client.id.in_(with_active))
+    if batch_ids:
+        in_batch = sa.select(Enrollment.client_id).where(
+            Enrollment.batch_id.in_(batch_ids)
+        )
+        conditions.append(Client.id.in_(in_batch))
+    if service_ids:
+        subscribed = sa.select(Subscription.client_id).where(
+            Subscription.service_id.in_(service_ids),
+            Subscription.status == SubscriptionStatus.active,
+        )
+        conditions.append(Client.id.in_(subscribed))
 
     total = await session.scalar(
         sa.select(sa.func.count()).select_from(Client).where(*conditions)

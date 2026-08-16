@@ -3082,6 +3082,8 @@ export interface operations {
                 q?: string | null;
                 lifecycle_stage?: components["schemas"]["LifecycleStage"] | null;
                 active_subscribers?: boolean;
+                batch_ids?: string[] | null;
+                service_ids?: string[] | null;
                 cursor?: number;
                 limit?: number;
             };

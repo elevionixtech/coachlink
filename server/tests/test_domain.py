@@ -166,6 +166,46 @@ async def test_clients_list_shows_subscriptions_and_batch(client, headers_a):
     assert listed[0]["batch_name"] is None
 
 
+async def test_clients_filter_by_batches_and_services(client, headers_a):
+    """Clients can be filtered by batch and by subscribed service; ids OR within a facet,
+    facets AND together, and the total follows."""
+    instructor = await create_instructor(client, headers_a)
+    location = await create_location(client, headers_a)
+    batch_x = await create_batch(client, headers_a, location["id"], instructor["id"], code="BX")
+    batch_y = await create_batch(client, headers_a, location["id"], instructor["id"], code="BY")
+    svc = await create_service(client, headers_a, sku="FS-1", rate="3000")
+
+    alice = await create_client_rec(client, headers_a, name="Alice")
+    bob = await create_client_rec(client, headers_a, name="Bob")
+    await create_client_rec(client, headers_a, name="Carol")  # in nothing
+
+    # Alice: subscribed + in batch_x. Bob: only in batch_y.
+    await client.post(
+        f"/api/clients/{alice['id']}/subscriptions",
+        json={"service_id": svc["id"], "start_date": "2026-07-01"},
+        headers=headers_a,
+    )
+    for cid, bid in ((alice["id"], batch_x["id"]), (bob["id"], batch_y["id"])):
+        await client.post(
+            "/api/enrollments",
+            json={"client_id": cid, "batch_id": bid, "start_date": "2026-07-01"},
+            headers=headers_a,
+        )
+
+    async def names(query):
+        res = (await client.get(f"/api/clients?{query}", headers=headers_a)).json()
+        return res["total"], sorted(c["name"] for c in res["items"])
+
+    # Batch facet OR: either batch → Alice and Bob.
+    assert await names(f"batch_ids={batch_x['id']}&batch_ids={batch_y['id']}") == (2, ["Alice", "Bob"])
+    # Single batch.
+    assert await names(f"batch_ids={batch_y['id']}") == (1, ["Bob"])
+    # Service facet.
+    assert await names(f"service_ids={svc['id']}") == (1, ["Alice"])
+    # Facets AND: in batch_y AND subscribed → nobody (Bob isn't subscribed).
+    assert await names(f"batch_ids={batch_y['id']}&service_ids={svc['id']}") == (0, [])
+
+
 async def test_search_and_lifecycle_filter(client, headers_a):
     await create_client_rec(client, headers_a, name="Asha Rao", phone="98860")
     await create_client_rec(client, headers_a, name="Vikram Iyer")

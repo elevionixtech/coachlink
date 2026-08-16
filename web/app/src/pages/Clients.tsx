@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, errorMessage } from '../api/client'
-import type { ClientIn, ClientOut, Page } from '../api/types'
+import type { BatchOut, ClientIn, ClientOut, Page, ServiceOut } from '../api/types'
 import { GENDERS, LEAD_SOURCES, LIFECYCLE_STAGES } from '../api/types'
 import { useAuth } from '../store/auth'
 import { rupees } from '../lib/format'
 import {
-  Badge, Button, ErrorNote, Field, Modal, EmptyState, Panel, SealHeading, SelectField,
-  Spinner, Table, TextArea, statusTone,
+  Badge, Button, ErrorNote, Field, Modal, EmptyState, MultiSelect, Panel, SealHeading,
+  SelectField, Spinner, Table, TextArea, statusTone,
 } from '../components/ui'
 
 export function ClientForm({
@@ -111,9 +111,21 @@ export default function Clients() {
   const [q, setQ] = useState('')
   const [stage, setStage] = useState('')
   const [activeOnly, setActiveOnly] = useState(false)
+  const [batchIds, setBatchIds] = useState<string[]>([])
+  const [serviceIds, setServiceIds] = useState<string[]>([])
   const [creating, setCreating] = useState(false)
   const queryClient = useQueryClient()
   const isAdmin = useAuth((s) => s.user?.role === 'admin')
+
+  // Options for the batch/subscription filters.
+  const { data: batchOpts } = useQuery({
+    queryKey: ['batches', ''],
+    queryFn: async () => (await api.get<Page<BatchOut>>('/batches', { params: { limit: 200 } })).data,
+  })
+  const { data: serviceOpts } = useQuery({
+    queryKey: ['services', '', ''],
+    queryFn: async () => (await api.get<Page<ServiceOut>>('/services', { params: { limit: 200 } })).data,
+  })
 
   // Org-wide active-subscription total — admin only (the endpoint 403s staff).
   const { data: subTotal } = useQuery({
@@ -124,7 +136,7 @@ export default function Clients() {
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', q, stage, activeOnly],
+    queryKey: ['clients', q, stage, activeOnly, batchIds, serviceIds],
     queryFn: async () =>
       (
         await api.get<Page<ClientOut>>('/clients', {
@@ -132,6 +144,8 @@ export default function Clients() {
             q: q || undefined,
             lifecycle_stage: stage || undefined,
             active_subscribers: activeOnly || undefined,
+            batch_ids: batchIds.length ? batchIds : undefined,
+            service_ids: serviceIds.length ? serviceIds : undefined,
           },
         })
       ).data,
@@ -170,6 +184,18 @@ export default function Clients() {
           <option value="">All stages</option>
           {LIFECYCLE_STAGES.map((s) => <option key={s}>{s}</option>)}
         </select>
+        <MultiSelect
+          label="Batches"
+          selected={batchIds}
+          onChange={setBatchIds}
+          options={(batchOpts?.items ?? []).map((b) => ({ value: b.id, label: `${b.name} · ${b.code}` }))}
+        />
+        <MultiSelect
+          label="Subscriptions"
+          selected={serviceIds}
+          onChange={setServiceIds}
+          options={(serviceOpts?.items ?? []).map((s) => ({ value: s.id, label: `${s.name} · ${s.sku}` }))}
+        />
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -192,8 +218,8 @@ export default function Clients() {
         <Panel>
           <EmptyState
             title="No clients found"
-            hint={q || stage || activeOnly ? 'Try a different search or filter.' : 'Add your first client to get started.'}
-            action={!q && !stage && !activeOnly && <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
+            hint={q || stage || activeOnly || batchIds.length || serviceIds.length ? 'Try a different search or filter.' : 'Add your first client to get started.'}
+            action={!q && !stage && !activeOnly && !batchIds.length && !serviceIds.length && <Button intent="accent" onClick={() => setCreating(true)}>Add client</Button>}
           />
         </Panel>
       ) : (
