@@ -95,7 +95,16 @@ async def list_batches(
     stmt = (
         sa.select(Batch)
         .where(Batch.org_id == ctx.org.id, not_archived(Batch))
-        .order_by(Batch.created_at.desc(), Batch.id)
+        # Show batches in schedule order — earliest first — with unscheduled ones last.
+        # The `is_(None)` keys sort nulls after real values portably (SQLite + Postgres).
+        .order_by(
+            Batch.start_date.is_(None),
+            Batch.start_date,
+            Batch.start_time.is_(None),
+            Batch.start_time,
+            Batch.name,
+            Batch.id,
+        )
         .offset(cursor)
         .limit(limit + 1)
     )

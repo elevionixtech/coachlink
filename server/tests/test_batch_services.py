@@ -1,7 +1,7 @@
 """A batch's services gate enrolment (§5.5): only clients with an active subscription to
 one of the batch's services may enrol; a serviceless batch stays open."""
 
-from datetime import date
+from datetime import date, timedelta
 
 from tests.conftest import (
     create_batch,
@@ -10,6 +10,25 @@ from tests.conftest import (
     create_location,
     create_service,
 )
+
+
+async def test_batches_ordered_by_schedule(client, headers_a):
+    """Batches list earliest-first by schedule (date then time); unscheduled last."""
+    loc = await create_location(client, headers_a)
+    ins = await create_instructor(client, headers_a)
+    today = str(date.today())
+    tomorrow = str(date.today() + timedelta(days=1))
+    await create_batch(client, headers_a, loc["id"], ins["id"], code="EVE",
+                       name="Evening", start_date=today, start_time="18:00:00")
+    await create_batch(client, headers_a, loc["id"], ins["id"], code="MORN",
+                       name="Morning", start_date=today, start_time="06:00:00")
+    await create_batch(client, headers_a, loc["id"], ins["id"], code="TMRW",
+                       name="Tomorrow", start_date=tomorrow, start_time="06:00:00")
+    await create_batch(client, headers_a, loc["id"], ins["id"], code="NONE",
+                       name="Unscheduled", start_date=None)
+
+    listed = (await client.get("/api/batches", headers=headers_a)).json()["items"]
+    assert [b["code"] for b in listed] == ["MORN", "EVE", "TMRW", "NONE"]
 
 
 async def _batch_with_services(client, headers, service_ids, code="BS-1"):
