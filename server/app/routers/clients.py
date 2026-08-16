@@ -72,23 +72,18 @@ async def _client_out(session: SessionDep, client: Client) -> ClientOut:
     return out
 
 
-@router.get("")
-async def list_clients(
-    ctx: OrgUser,
-    session: SessionDep,
-    q: str | None = None,
-    lifecycle_stage: LifecycleStage | None = None,
-    active_subscribers: bool = False,
-    batch_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
-    service_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
-    cursor: int = 0,
-    limit: int = PAGE_LIMIT_DEFAULT,
-) -> Page[ClientOut]:
-    limit = clamp_limit(limit)
-    # One set of filters drives both the page query and its total count, so the count
-    # always reflects exactly what is (or would be) shown. Within a facet the ids are
-    # OR'd (any of the chosen batches/services); across facets they combine with AND.
-    conditions = [Client.org_id == ctx.org.id, not_archived(Client)]
+def _client_filters(
+    org_id: uuid.UUID,
+    q: str | None,
+    lifecycle_stage: LifecycleStage | None,
+    active_subscribers: bool,
+    batch_ids: list[uuid.UUID] | None,
+    service_ids: list[uuid.UUID] | None,
+) -> list:
+    """The shared WHERE conditions for the clients list — reused by the page query, its
+    total count, and the (admin) subscription total so all three stay in lock-step.
+    Within a facet the ids are OR'd (any chosen batch/service); facets combine with AND."""
+    conditions = [Client.org_id == org_id, not_archived(Client)]
     if q:
         pattern = f"%{q}%"
         conditions.append(
@@ -116,7 +111,25 @@ async def list_clients(
             Subscription.status == SubscriptionStatus.active,
         )
         conditions.append(Client.id.in_(subscribed))
+    return conditions
 
+
+@router.get("")
+async def list_clients(
+    ctx: OrgUser,
+    session: SessionDep,
+    q: str | None = None,
+    lifecycle_stage: LifecycleStage | None = None,
+    active_subscribers: bool = False,
+    batch_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    service_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    cursor: int = 0,
+    limit: int = PAGE_LIMIT_DEFAULT,
+) -> Page[ClientOut]:
+    limit = clamp_limit(limit)
+    conditions = _client_filters(
+        ctx.org.id, q, lifecycle_stage, active_subscribers, batch_ids, service_ids
+    )
     total = await session.scalar(
         sa.select(sa.func.count()).select_from(Client).where(*conditions)
     )
@@ -188,17 +201,25 @@ async def create_client(body: ClientIn, ctx: OrgUser, session: SessionDep) -> Cl
 # Declared before /{client_id} so the literal path is not swallowed by the UUID route.
 @router.get("/subscription-total")
 async def clients_subscription_total(
-    ctx: OrgAdmin, session: SessionDep
+    ctx: OrgAdmin,
+    session: SessionDep,
+    q: str | None = None,
+    lifecycle_stage: LifecycleStage | None = None,
+    active_subscribers: bool = False,
+    batch_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
+    service_ids: Annotated[list[uuid.UUID] | None, Query()] = None,
 ) -> SubscriptionTotalOut:
-    """Org-wide sum of every active subscription's per-period amount, across all clients.
-    Admin only (OrgAdmin dependency 403s staff)."""
+    """Sum of every active subscription's per-period amount for the clients matching the
+    same filters as the list — so the figure tracks the filtered set. Admin only
+    (OrgAdmin dependency 403s staff)."""
+    conditions = _client_filters(
+        ctx.org.id, q, lifecycle_stage, active_subscribers, batch_ids, service_ids
+    )
+    matching = sa.select(Client.id).where(*conditions)
     subs = (
         await session.scalars(
-            sa.select(Subscription)
-            .join(Client, Client.id == Subscription.client_id)
-            .where(
-                Client.org_id == ctx.org.id,
-                not_archived(Client),
+            sa.select(Subscription).where(
+                Subscription.client_id.in_(matching),
                 Subscription.status == SubscriptionStatus.active,
             )
         )

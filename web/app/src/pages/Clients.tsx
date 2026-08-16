@@ -127,28 +127,28 @@ export default function Clients() {
     queryFn: async () => (await api.get<Page<ServiceOut>>('/services', { params: { limit: 200 } })).data,
   })
 
-  // Org-wide active-subscription total — admin only (the endpoint 403s staff).
+  // The same filters drive the list and the admin subscription total.
+  const filters = {
+    q: q || undefined,
+    lifecycle_stage: stage || undefined,
+    active_subscribers: activeOnly || undefined,
+    batch_ids: batchIds.length ? batchIds : undefined,
+    service_ids: serviceIds.length ? serviceIds : undefined,
+  }
+  const filterKey = [q, stage, activeOnly, batchIds, serviceIds]
+
+  // Active-subscription total for the filtered clients — admin only (endpoint 403s staff).
   const { data: subTotal } = useQuery({
-    queryKey: ['clients-subscription-total'],
+    queryKey: ['clients-subscription-total', ...filterKey],
     queryFn: async () =>
-      (await api.get<{ total: string; active_subscriptions: number }>('/clients/subscription-total')).data,
+      (await api.get<{ total: string; active_subscriptions: number }>('/clients/subscription-total', { params: filters })).data,
     enabled: isAdmin,
+    placeholderData: keepPreviousData,
   })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['clients', q, stage, activeOnly, batchIds, serviceIds],
-    queryFn: async () =>
-      (
-        await api.get<Page<ClientOut>>('/clients', {
-          params: {
-            q: q || undefined,
-            lifecycle_stage: stage || undefined,
-            active_subscribers: activeOnly || undefined,
-            batch_ids: batchIds.length ? batchIds : undefined,
-            service_ids: serviceIds.length ? serviceIds : undefined,
-          },
-        })
-      ).data,
+    queryKey: ['clients', ...filterKey],
+    queryFn: async () => (await api.get<Page<ClientOut>>('/clients', { params: filters })).data,
     // Keep the current rows on screen while a filter change refetches, so the table —
     // and the header filter dropdown the user is clicking in — never unmounts.
     placeholderData: keepPreviousData,

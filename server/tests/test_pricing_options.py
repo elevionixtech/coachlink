@@ -216,6 +216,11 @@ async def test_subscription_total_admin_only(client, headers_a, headers_a_staff)
     assert body["active_subscriptions"] == 1
     assert body["total"] in ("2400", "2400.00")  # ended one excluded
 
+    # The total tracks the same filters as the list — searching for B (whose only
+    # subscription is ended) yields zero.
+    filtered = await client.get("/api/clients/subscription-total?q=B", headers=headers_a)
+    assert filtered.json() == {"total": "0", "active_subscriptions": 0}
+
     # Staff may not see it.
     staff = await client.get("/api/clients/subscription-total", headers=headers_a_staff)
     assert staff.status_code == 403
